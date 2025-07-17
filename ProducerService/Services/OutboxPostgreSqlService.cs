@@ -20,11 +20,20 @@ public class OutboxPostgreSqlService : IOutboxService
 {
   private readonly OutboxDbContext _dbContext;
   private readonly ILogger<OutboxPostgreSqlService> _logger;
+  private readonly string _currentServiceId;
+  private readonly string _currentInstanceId;
 
   public OutboxPostgreSqlService(OutboxDbContext dbContext, ILogger<OutboxPostgreSqlService> logger)
   {
     _dbContext = dbContext;
     _logger = logger;
+
+    // Get current service identification from environment
+    _currentServiceId = Environment.GetEnvironmentVariable("SERVICE_ID")
+        ?? Environment.GetEnvironmentVariable("PRODUCER_SERVICE_ID")
+        ?? $"producer-{Environment.MachineName}";
+    _currentInstanceId = Environment.GetEnvironmentVariable("INSTANCE_ID")
+        ?? $"{_currentServiceId}-{Guid.NewGuid():N}";
   }
 
   public async Task<List<OutboxMessage>> CreateMessagesForTopicAsync(string topicName, string message, string? specificConsumerGroup = null)
@@ -64,7 +73,9 @@ public class OutboxPostgreSqlService : IOutboxService
           ConsumerGroup = consumerGroup.ConsumerGroupName,
           TopicRegistrationId = topicRegistration.Id,
           Status = OutboxMessageStatus.Pending,
-          CreatedAt = DateTime.UtcNow
+          CreatedAt = DateTime.UtcNow,
+          ProducerServiceId = _currentServiceId,
+          ProducerInstanceId = _currentInstanceId
         };
 
         _dbContext.OutboxMessages.Add(outboxMessage);
@@ -148,14 +159,14 @@ public class OutboxPostgreSqlService : IOutboxService
       return false;
     }
   }
-
   public async Task<List<OutboxMessage>> GetPendingMessagesAsync(int limit = 100)
   {
     try
     {
       return await _dbContext.OutboxMessages
         .Include(m => m.TopicRegistration)
-        .Where(m => m.Status == OutboxMessageStatus.Pending)
+        .Where(m => m.Status == OutboxMessageStatus.Pending &&
+                    m.ProducerServiceId == _currentServiceId)
         .OrderBy(m => m.CreatedAt)
         .Take(limit)
         .ToListAsync();

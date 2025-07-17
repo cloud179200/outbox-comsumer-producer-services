@@ -37,16 +37,16 @@ public class MessageProcessor : IMessageProcessor
       await _consumerTracking.MarkMessageAsProcessingAsync(message);
 
       // Simulate actual message processing based on topic
-      var success = await ProcessByTopic(message);
-
-      if (success)
+      var success = await ProcessByTopic(message); if (success)
       {
         // Mark message as successfully processed
         await _consumerTracking.MarkMessageAsProcessedAsync(
             message.MessageId,
             message.ConsumerGroup,
             message.Topic,
-            message.Content);
+            message.Content,
+            message.ProducerServiceId,
+            message.ProducerInstanceId);
         _logger.LogInformation("Message {MessageId} processed successfully", message.MessageId);
       }
       else
@@ -57,7 +57,9 @@ public class MessageProcessor : IMessageProcessor
             message.ConsumerGroup,
             message.Topic,
             "Processing failed",
-            message.Content);
+            message.Content,
+            message.ProducerServiceId,
+            message.ProducerInstanceId);
         _logger.LogWarning("Message {MessageId} processing failed", message.MessageId);
       }
 
@@ -71,7 +73,9 @@ public class MessageProcessor : IMessageProcessor
           message.ConsumerGroup,
           message.Topic,
           ex.Message,
-          message.Content);
+          message.Content,
+          message.ProducerServiceId,
+          message.ProducerInstanceId);
       return false;
     }
   }

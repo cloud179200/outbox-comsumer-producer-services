@@ -92,26 +92,24 @@ public class KafkaConsumerService : IKafkaConsumerService
     try
     {
       _logger.LogInformation("Received message {Key} from topic {Topic} for consumer group {ConsumerGroup}",
-          consumeResult.Message.Key, consumeResult.Topic, consumerGroup);
-
-      // Parse the message
+          consumeResult.Message.Key, consumeResult.Topic, consumerGroup);      // Parse the message
       var messageData = JsonConvert.DeserializeObject<dynamic>(consumeResult.Message.Value);
       var messageId = messageData?.MessageId?.ToString() ?? "";
       var content = messageData?.Content?.ToString();
-
-      if (string.IsNullOrEmpty(messageId))
+      var producerServiceId = messageData?.ProducerServiceId?.ToString() ?? "";
+      var producerInstanceId = messageData?.ProducerInstanceId?.ToString() ?? ""; if (string.IsNullOrEmpty(messageId))
       {
         _logger.LogWarning("Received message without MessageId from topic {Topic}", consumeResult.Topic);
         return;
-      }
-
-      // Create consumer message
+      }      // Create consumer message
       var consumerMessage = new ConsumerMessage
       {
         MessageId = messageId,
         Topic = consumeResult.Topic,
         Content = content ?? consumeResult.Message.Value,
-        ConsumerGroup = consumerGroup
+        ConsumerGroup = consumerGroup,
+        ProducerServiceId = producerServiceId,
+        ProducerInstanceId = producerInstanceId
       };
 
       // Process the message using scoped services

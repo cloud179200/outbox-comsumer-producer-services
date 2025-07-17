@@ -1,4 +1,5 @@
 using ConsumerService.Services;
+using ConsumerService.Models;
 
 namespace ConsumerService.BackgroundServices;
 
@@ -7,6 +8,8 @@ public class ConsumerBackgroundService : BackgroundService
   private readonly IServiceProvider _serviceProvider;
   private readonly ILogger<ConsumerBackgroundService> _logger;
   private readonly IConfiguration _configuration;
+  private readonly string _serviceId;
+  private readonly string _instanceId;
 
   public ConsumerBackgroundService(
       IServiceProvider serviceProvider,
@@ -16,11 +19,18 @@ public class ConsumerBackgroundService : BackgroundService
     _serviceProvider = serviceProvider;
     _logger = logger;
     _configuration = configuration;
-  }
 
+    // Get service identification from environment
+    _serviceId = Environment.GetEnvironmentVariable("SERVICE_ID")
+        ?? Environment.GetEnvironmentVariable("CONSUMER_SERVICE_ID")
+        ?? $"consumer-{Environment.MachineName}";
+    _instanceId = Environment.GetEnvironmentVariable("INSTANCE_ID")
+        ?? $"{_serviceId}-{Guid.NewGuid():N}";
+  }
   protected override async Task ExecuteAsync(CancellationToken stoppingToken)
   {
-    _logger.LogInformation("Consumer background service started");
+    _logger.LogInformation("Consumer background service started for {ServiceId} (Instance: {InstanceId})",
+        _serviceId, _instanceId);
 
     // Get consumer group configuration from appsettings
     var consumerGroups = _configuration.GetSection("ConsumerGroups").Get<ConsumerGroupConfig[]>()
@@ -45,6 +55,10 @@ public class ConsumerBackgroundService : BackgroundService
 
     // Start multiple consumer tasks
     var consumerTasks = new List<Task>();
+
+    // Start heartbeat task
+    var heartbeatTask = StartHeartbeatService(stoppingToken);
+    consumerTasks.Add(heartbeatTask);
 
     foreach (var consumerGroup in consumerGroups)
     {
@@ -103,10 +117,80 @@ public class ConsumerBackgroundService : BackgroundService
 
     _logger.LogInformation("Consumer group {ConsumerGroup} stopped", config.GroupName);
   }
-}
 
-public class ConsumerGroupConfig
-{
-  public string GroupName { get; set; } = string.Empty;
-  public string[] Topics { get; set; } = Array.Empty<string>();
+  private async Task StartHeartbeatService(CancellationToken cancellationToken)
+  {
+    var heartbeatInterval = _configuration.GetValue<int>("ConsumerHeartbeatIntervalMs", 30000);
+    var producerServiceUrl = _configuration["ProducerService:BaseUrl"] ?? "http://localhost:5299";
+
+    _logger.LogInformation("Starting heartbeat service for Consumer Service {ServiceId}", _serviceId);
+
+    while (!cancellationToken.IsCancellationRequested)
+    {
+      try
+      {
+        using var httpClient = new HttpClient();
+
+        var heartbeatRequest = new
+        {
+          ServiceId = _serviceId,
+          InstanceId = _instanceId,
+          Status = "Active",
+          HealthStatus = "Healthy",
+          StatusMessage = "Consumer service running normally",
+          HealthData = CollectHealthData()
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(heartbeatRequest);
+        var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+        var response = await httpClient.PostAsync($"{producerServiceUrl}/api/agents/consumers/heartbeat", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+          _logger.LogDebug("Heartbeat sent successfully for Consumer Service {ServiceId}", _serviceId);
+        }
+        else
+        {
+          _logger.LogWarning("Failed to send heartbeat for Consumer Service {ServiceId}. Status: {Status}",
+              _serviceId, response.StatusCode);
+        }
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError(ex, "Error sending heartbeat for Consumer Service {ServiceId}", _serviceId);
+      }
+
+      await Task.Delay(heartbeatInterval, cancellationToken);
+    }
+
+    _logger.LogInformation("Heartbeat service stopped for Consumer Service {ServiceId}", _serviceId);
+  }
+
+  private Dictionary<string, object> CollectHealthData()
+  {
+    try
+    {
+      var healthData = new Dictionary<string, object>
+      {
+        ["timestamp"] = DateTime.UtcNow.ToString("O"),
+        ["uptime"] = Environment.TickCount64,
+        ["machineName"] = Environment.MachineName,
+        ["processId"] = Environment.ProcessId,
+        ["workingSet"] = Environment.WorkingSet,
+        ["gcMemory"] = GC.GetTotalMemory(false)
+      };
+
+      return healthData;
+    }
+    catch (Exception ex)
+    {
+      _logger.LogWarning(ex, "Could not collect health data");
+      return new Dictionary<string, object>
+      {
+        ["timestamp"] = DateTime.UtcNow.ToString("O"),
+        ["error"] = ex.Message
+      };
+    }
+  }
 }

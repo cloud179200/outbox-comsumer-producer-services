@@ -38,6 +38,8 @@ public class ConsumerMessage
   public string Content { get; set; } = string.Empty;
   public string ConsumerGroup { get; set; } = string.Empty;
   public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
+  public string ProducerServiceId { get; set; } = string.Empty;
+  public string ProducerInstanceId { get; set; } = string.Empty;
 }
 
 public class ProcessedMessage
@@ -47,6 +49,10 @@ public class ProcessedMessage
   public string Topic { get; set; } = string.Empty;
   public DateTime ProcessedAt { get; set; } = DateTime.UtcNow;
   public string? Content { get; set; }
+  public string ProducerServiceId { get; set; } = string.Empty;
+  public string ProducerInstanceId { get; set; } = string.Empty;
+  public string ConsumerServiceId { get; set; } = string.Empty;
+  public string ConsumerInstanceId { get; set; } = string.Empty;
 }
 
 public class FailedMessage
@@ -59,4 +65,44 @@ public class FailedMessage
   public DateTime FailedAt { get; set; } = DateTime.UtcNow;
   public int RetryCount { get; set; } = 0;
   public string? Content { get; set; }
+  public string ProducerServiceId { get; set; } = string.Empty;
+  public string ProducerInstanceId { get; set; } = string.Empty;
+  public string ConsumerServiceId { get; set; } = string.Empty;
+  public string ConsumerInstanceId { get; set; } = string.Empty;
+}
+
+// Agent Management Models for Horizontal Scaling
+public enum ServiceType
+{
+  Producer,
+  Consumer
+}
+
+public enum HealthStatus
+{
+  Healthy,
+  Degraded,
+  Unhealthy,
+  Unknown
+}
+
+public class AgentRegistrationRequest
+{
+  public string ServiceId { get; set; } = string.Empty;
+  public string ServiceName { get; set; } = string.Empty;
+  public string HostName { get; set; } = string.Empty;
+  public string IpAddress { get; set; } = string.Empty;
+  public int Port { get; set; }
+  public string BaseUrl { get; set; } = string.Empty;
+  public ServiceType ServiceType { get; set; }
+  public string? Version { get; set; }
+  public Dictionary<string, string> Metadata { get; set; } = new();
+  public string[] AssignedConsumerGroups { get; set; } = Array.Empty<string>();
+  public string[] AssignedTopics { get; set; } = Array.Empty<string>();
+}
+
+public class ConsumerGroupConfig
+{
+  public string GroupName { get; set; } = string.Empty;
+  public string[] Topics { get; set; } = Array.Empty<string>();
 }

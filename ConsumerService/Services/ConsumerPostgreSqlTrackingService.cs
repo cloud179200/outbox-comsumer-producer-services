@@ -8,8 +8,8 @@ public interface IConsumerTrackingService
 {
   Task<bool> IsMessageProcessedAsync(string messageId, string consumerGroup);
   Task MarkMessageAsProcessingAsync(ConsumerMessage message);
-  Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null);
-  Task MarkMessageAsFailedAsync(string messageId, string consumerGroup, string topic, string errorMessage, string? content = null);
+  Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null, string? producerServiceId = null, string? producerInstanceId = null);
+  Task MarkMessageAsFailedAsync(string messageId, string consumerGroup, string topic, string errorMessage, string? content = null, string? producerServiceId = null, string? producerInstanceId = null);
   Task<List<ProcessedMessage>> GetProcessedMessagesAsync(string consumerGroup, int limit = 100);
   Task<List<FailedMessage>> GetFailedMessagesAsync(string consumerGroup, int limit = 100);
 }
@@ -18,11 +18,13 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
 {
   private readonly ConsumerDbContext _dbContext;
   private readonly ILogger<ConsumerPostgreSqlTrackingService> _logger;
+  private readonly IConfiguration _configuration;
 
-  public ConsumerPostgreSqlTrackingService(ConsumerDbContext dbContext, ILogger<ConsumerPostgreSqlTrackingService> logger)
+  public ConsumerPostgreSqlTrackingService(ConsumerDbContext dbContext, ILogger<ConsumerPostgreSqlTrackingService> logger, IConfiguration configuration)
   {
     _dbContext = dbContext;
     _logger = logger;
+    _configuration = configuration;
   }
 
   public async Task<bool> IsMessageProcessedAsync(string messageId, string consumerGroup)
@@ -62,18 +64,29 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
           message.MessageId, message.ConsumerGroup);
     }
   }
-
-  public async Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null)
+  public async Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null, string? producerServiceId = null, string? producerInstanceId = null)
   {
     try
     {
+      // Get consumer service information
+      var consumerServiceId = Environment.GetEnvironmentVariable("SERVICE_ID")
+          ?? Environment.GetEnvironmentVariable("CONSUMER_SERVICE_ID")
+          ?? $"consumer-{Environment.MachineName}";
+
+      var consumerInstanceId = Environment.GetEnvironmentVariable("INSTANCE_ID")
+          ?? $"{consumerServiceId}-{Guid.NewGuid():N}";
+
       var processedMessage = new ProcessedMessage
       {
         MessageId = messageId,
         ConsumerGroup = consumerGroup,
         Topic = topic,
         ProcessedAt = DateTime.UtcNow,
-        Content = content
+        Content = content,
+        ProducerServiceId = producerServiceId ?? "",
+        ProducerInstanceId = producerInstanceId ?? "",
+        ConsumerServiceId = consumerServiceId,
+        ConsumerInstanceId = consumerInstanceId
       };
 
       // Use upsert pattern to handle duplicates
@@ -85,8 +98,8 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
         _dbContext.ProcessedMessages.Add(processedMessage);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Marked message {MessageId} as processed for consumer group {ConsumerGroup}",
-            messageId, consumerGroup);
+        _logger.LogInformation("Marked message {MessageId} as processed for consumer group {ConsumerGroup} by {ConsumerServiceId}",
+            messageId, consumerGroup, consumerServiceId);
       }
       else
       {
@@ -100,11 +113,18 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
           messageId, consumerGroup);
     }
   }
-
-  public async Task MarkMessageAsFailedAsync(string messageId, string consumerGroup, string topic, string errorMessage, string? content = null)
+  public async Task MarkMessageAsFailedAsync(string messageId, string consumerGroup, string topic, string errorMessage, string? content = null, string? producerServiceId = null, string? producerInstanceId = null)
   {
     try
     {
+      // Get consumer service information
+      var consumerServiceId = Environment.GetEnvironmentVariable("SERVICE_ID")
+          ?? Environment.GetEnvironmentVariable("CONSUMER_SERVICE_ID")
+          ?? $"consumer-{Environment.MachineName}";
+
+      var consumerInstanceId = Environment.GetEnvironmentVariable("INSTANCE_ID")
+          ?? $"{consumerServiceId}-{Guid.NewGuid():N}";
+
       // Check if we already have a failed record for this message
       var existingFailed = await _dbContext.FailedMessages
           .FirstOrDefaultAsync(f => f.MessageId == messageId && f.ConsumerGroup == consumerGroup);
@@ -115,6 +135,10 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
         existingFailed.RetryCount++;
         existingFailed.ErrorMessage = errorMessage;
         existingFailed.FailedAt = DateTime.UtcNow;
+        existingFailed.ProducerServiceId = producerServiceId ?? existingFailed.ProducerServiceId;
+        existingFailed.ProducerInstanceId = producerInstanceId ?? existingFailed.ProducerInstanceId;
+        existingFailed.ConsumerServiceId = consumerServiceId;
+        existingFailed.ConsumerInstanceId = consumerInstanceId;
       }
       else
       {
@@ -126,7 +150,11 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
           ErrorMessage = errorMessage,
           FailedAt = DateTime.UtcNow,
           RetryCount = 1,
-          Content = content
+          Content = content,
+          ProducerServiceId = producerServiceId ?? "",
+          ProducerInstanceId = producerInstanceId ?? "",
+          ConsumerServiceId = consumerServiceId,
+          ConsumerInstanceId = consumerInstanceId
         };
 
         _dbContext.FailedMessages.Add(failedMessage);
@@ -134,8 +162,8 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
 
       await _dbContext.SaveChangesAsync();
 
-      _logger.LogWarning("Marked message {MessageId} as failed for consumer group {ConsumerGroup}: {ErrorMessage}",
-          messageId, consumerGroup, errorMessage);
+      _logger.LogWarning("Marked message {MessageId} as failed for consumer group {ConsumerGroup} by {ConsumerServiceId}: {ErrorMessage}",
+          messageId, consumerGroup, consumerServiceId, errorMessage);
     }
     catch (Exception ex)
     {

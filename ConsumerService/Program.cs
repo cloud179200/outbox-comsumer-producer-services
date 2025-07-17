@@ -2,8 +2,18 @@ using Microsoft.EntityFrameworkCore;
 using ConsumerService.Services;
 using ConsumerService.BackgroundServices;
 using ConsumerService.Data;
+using ConsumerService.Models;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Get Service ID from environment variable
+var serviceId = Environment.GetEnvironmentVariable("SERVICE_ID")
+    ?? Environment.GetEnvironmentVariable("CONSUMER_SERVICE_ID")
+    ?? $"consumer-{Environment.MachineName}";
+
+var instanceId = Environment.GetEnvironmentVariable("INSTANCE_ID")
+    ?? $"{serviceId}-{Guid.NewGuid():N}";
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -35,6 +45,73 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ConsumerDbContext>();
     await context.Database.EnsureCreatedAsync();
+
+    // Register this consumer service instance with the producer service
+    await RegisterConsumerAgentAsync(serviceId, instanceId, builder.Configuration);
+}
+
+async Task RegisterConsumerAgentAsync(string serviceId, string instanceId, IConfiguration configuration)
+{
+    try
+    {
+        using var httpClient = new HttpClient();
+        var producerServiceUrl = configuration["ProducerService:BaseUrl"] ?? "http://localhost:5299";
+
+        var hostName = Environment.MachineName;
+        var ipAddress = Dns.GetHostAddresses(hostName)
+            .FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString()
+            ?? "127.0.0.1";
+
+        var port = configuration.GetValue<int?>("Port")
+            ?? (int.TryParse(configuration["urls"]?.Split(':').Last().Split(';').First(), out var p) ? p : 5156); var consumerGroups = configuration.GetSection("ConsumerGroups").Get<ConsumerService.Models.ConsumerGroupConfig[]>()
+            ?? Array.Empty<ConsumerService.Models.ConsumerGroupConfig>();
+
+        var assignedGroups = consumerGroups.Select(cg => cg.GroupName).ToArray();
+        var assignedTopics = consumerGroups.SelectMany(cg => cg.Topics).Distinct().ToArray();
+
+        var registration = new AgentRegistrationRequest
+        {
+            ServiceId = serviceId,
+            ServiceName = "Consumer Service",
+            HostName = hostName,
+            IpAddress = ipAddress,
+            Port = port,
+            BaseUrl = $"http://{ipAddress}:{port}",
+            ServiceType = ServiceType.Consumer,
+            Version = "1.0.0",
+            AssignedConsumerGroups = assignedGroups,
+            AssignedTopics = assignedTopics,
+            Metadata = new Dictionary<string, string>
+            {
+                ["Environment"] = app.Environment.EnvironmentName,
+                ["StartTime"] = DateTime.UtcNow.ToString("O"),
+                ["MachineName"] = Environment.MachineName,
+                ["ProcessId"] = Environment.ProcessId.ToString()
+            }
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(registration);
+        var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+        var response = await httpClient.PostAsync($"{producerServiceUrl}/api/agents/consumers/register", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Consumer service {ServiceId} registered successfully with producer service", serviceId);
+        }
+        else
+        {
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogWarning("Failed to register consumer service {ServiceId} with producer service. Status: {Status}",
+                serviceId, response.StatusCode);
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error registering consumer service {ServiceId} with producer service", serviceId);
+    }
 }
 
 // Configure the HTTP request pipeline.

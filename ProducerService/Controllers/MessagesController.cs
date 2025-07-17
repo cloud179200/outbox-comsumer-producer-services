@@ -17,6 +17,17 @@ public class MessagesController : ControllerBase
     _logger = logger;
   }
 
+  [HttpGet("health")]
+  public ActionResult<object> GetHealth()
+  {
+    return Ok(new
+    {
+      Status = "Healthy",
+      Timestamp = DateTime.UtcNow,
+      Service = "Producer Service"
+    });
+  }
+
   [HttpPost("send")]
   public async Task<ActionResult<MessageResponse>> SendMessage([FromBody] MessageRequest request)
   {
@@ -39,15 +50,15 @@ public class MessagesController : ControllerBase
       }
 
       _logger.LogInformation("Created {Count} outbox messages for topic {Topic}",
-          messages.Count, request.Topic);
-
-      return Ok(new MessageResponse
-      {
-        MessageId = messages.First().Id,
-        Status = "Queued",
-        Topic = request.Topic,
-        TargetConsumerGroups = messages.Select(m => m.ConsumerGroup).ToList()
-      });
+          messages.Count, request.Topic); return Ok(new MessageResponse
+          {
+            MessageId = messages.First().Id,
+            Status = "Queued",
+            Topic = request.Topic,
+            TargetConsumerGroups = messages.Select(m => m.ConsumerGroup).ToList(),
+            ProducerServiceId = messages.First().ProducerServiceId,
+            ProducerInstanceId = messages.First().ProducerInstanceId
+          });
     }
     catch (Exception ex)
     {

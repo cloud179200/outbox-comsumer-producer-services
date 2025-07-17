@@ -9,11 +9,20 @@ public class OutboxProcessorService : BackgroundService
   private readonly ILogger<OutboxProcessorService> _logger;
   private readonly TimeSpan _processingInterval = TimeSpan.FromSeconds(5);
   private readonly TimeSpan _acknowledgmentTimeout = TimeSpan.FromMinutes(5);
+  private readonly string _currentServiceId;
+  private readonly string _currentInstanceId;
 
   public OutboxProcessorService(IServiceProvider serviceProvider, ILogger<OutboxProcessorService> logger)
   {
     _serviceProvider = serviceProvider;
     _logger = logger;
+
+    // Get current service identification from environment
+    _currentServiceId = Environment.GetEnvironmentVariable("SERVICE_ID")
+        ?? Environment.GetEnvironmentVariable("PRODUCER_SERVICE_ID")
+        ?? $"producer-{Environment.MachineName}";
+    _currentInstanceId = Environment.GetEnvironmentVariable("INSTANCE_ID")
+        ?? $"{_currentServiceId}-{Guid.NewGuid():N}";
   }
 
   protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -26,9 +35,7 @@ public class OutboxProcessorService : BackgroundService
       {
         using var scope = _serviceProvider.CreateScope();
         var outboxService = scope.ServiceProvider.GetRequiredService<IOutboxService>();
-        var kafkaService = scope.ServiceProvider.GetRequiredService<IKafkaProducerService>();
-
-        // Process pending messages
+        var kafkaService = scope.ServiceProvider.GetRequiredService<IKafkaProducerService>();        // Process pending messages for this producer service only
         await ProcessPendingMessages(outboxService, kafkaService);
 
         // Check for unacknowledged messages that might need retry

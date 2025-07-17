@@ -8,11 +8,15 @@ public class OutboxDbContext : DbContext
   public OutboxDbContext(DbContextOptions<OutboxDbContext> options) : base(options)
   {
   }
-
   public DbSet<OutboxMessage> OutboxMessages { get; set; }
   public DbSet<TopicRegistration> TopicRegistrations { get; set; }
   public DbSet<ConsumerGroupRegistration> ConsumerGroupRegistrations { get; set; }
   public DbSet<ConsumerAcknowledgment> ConsumerAcknowledgments { get; set; }
+
+  // Agent Management for Horizontal Scaling
+  public DbSet<ProducerServiceAgent> ProducerServiceAgents { get; set; }
+  public DbSet<ConsumerServiceAgent> ConsumerServiceAgents { get; set; }
+  public DbSet<ServiceHealthCheck> ServiceHealthChecks { get; set; }
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -63,9 +67,7 @@ public class OutboxDbContext : DbContext
                 .WithMany(t => t.ConsumerGroups)
                 .HasForeignKey(e => e.TopicRegistrationId)
                 .OnDelete(DeleteBehavior.Cascade);
-    });
-
-    // ConsumerAcknowledgment configuration
+    });    // ConsumerAcknowledgment configuration
     modelBuilder.Entity<ConsumerAcknowledgment>(entity =>
     {
       entity.HasKey(e => e.Id);
@@ -79,6 +81,76 @@ public class OutboxDbContext : DbContext
                 .WithMany(c => c.Acknowledgments)
                 .HasForeignKey(e => e.ConsumerGroupRegistrationId)
                 .OnDelete(DeleteBehavior.Cascade);
+    });    // ProducerServiceAgent configuration
+    modelBuilder.Entity<ProducerServiceAgent>(entity =>
+    {
+      entity.HasKey(e => e.Id);
+      entity.Property(e => e.ServiceId).IsRequired().HasMaxLength(100);
+      entity.Property(e => e.InstanceId).IsRequired().HasMaxLength(100);
+      entity.Property(e => e.ServiceName).IsRequired().HasMaxLength(200);
+      entity.Property(e => e.HostName).HasMaxLength(200);
+      entity.Property(e => e.IpAddress).HasMaxLength(50);
+      entity.Property(e => e.BaseUrl).HasMaxLength(500);
+      entity.Property(e => e.Version).HasMaxLength(50);
+
+      // Convert Dictionary to JSON
+      entity.Property(e => e.Metadata)
+        .HasConversion(
+          v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+          v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>());
+
+      entity.HasIndex(e => e.ServiceId).IsUnique();
+      entity.HasIndex(e => e.InstanceId).IsUnique();
+    });
+
+    // ConsumerServiceAgent configuration
+    modelBuilder.Entity<ConsumerServiceAgent>(entity =>
+    {
+      entity.HasKey(e => e.Id);
+      entity.Property(e => e.ServiceId).IsRequired().HasMaxLength(100);
+      entity.Property(e => e.InstanceId).IsRequired().HasMaxLength(100);
+      entity.Property(e => e.ServiceName).IsRequired().HasMaxLength(200);
+      entity.Property(e => e.HostName).HasMaxLength(200);
+      entity.Property(e => e.IpAddress).HasMaxLength(50);
+      entity.Property(e => e.BaseUrl).HasMaxLength(500);
+      entity.Property(e => e.Version).HasMaxLength(50);
+
+      // Convert arrays to JSON
+      entity.Property(e => e.AssignedConsumerGroups)
+        .HasConversion(
+          v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+          v => System.Text.Json.JsonSerializer.Deserialize<string[]>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? Array.Empty<string>());
+
+      entity.Property(e => e.AssignedTopics)
+        .HasConversion(
+          v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+          v => System.Text.Json.JsonSerializer.Deserialize<string[]>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? Array.Empty<string>());
+
+      // Convert Dictionary to JSON
+      entity.Property(e => e.Metadata)
+        .HasConversion(
+          v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+          v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, string>());
+
+      entity.HasIndex(e => e.ServiceId).IsUnique();
+      entity.HasIndex(e => e.InstanceId).IsUnique();
+    });
+
+    // ServiceHealthCheck configuration
+    modelBuilder.Entity<ServiceHealthCheck>(entity =>
+    {
+      entity.HasKey(e => e.Id);
+      entity.Property(e => e.ServiceId).IsRequired().HasMaxLength(100);
+      entity.Property(e => e.InstanceId).IsRequired().HasMaxLength(100);
+      entity.Property(e => e.StatusMessage).HasMaxLength(1000);
+
+      // Convert Dictionary to JSON
+      entity.Property(e => e.HealthData)
+        .HasConversion(
+          v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+          v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>());
+
+      entity.HasIndex(e => new { e.ServiceId, e.CheckedAt });
     });
 
     // Seed data

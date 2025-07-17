@@ -1,0 +1,62 @@
+@ConsumerService_HostAddress = http://localhost:5287
+
+### Health Check
+GET {{ConsumerService_HostAddress}}/api/consumer/health
+Accept: application/json
+
+### Get Processed Messages for Default Consumer Group
+GET {{ConsumerService_HostAddress}}/api/consumer/processed/default-consumer-group?limit=50
+Accept: application/json
+
+### Get Processed Messages for Analytics Group
+GET {{ConsumerService_HostAddress}}/api/consumer/processed/analytics-group?limit=50
+Accept: application/json
+
+### Get Processed Messages for Notification Group
+GET {{ConsumerService_HostAddress}}/api/consumer/processed/notification-group?limit=50
+Accept: application/json
+
+### Get Processed Messages for Payment Service
+GET {{ConsumerService_HostAddress}}/api/consumer/processed/payment-service?limit=50
+Accept: application/json
+
+### Get Failed Messages for Default Consumer Group
+GET {{ConsumerService_HostAddress}}/api/consumer/failed/default-consumer-group?limit=50
+Accept: application/json
+
+### Get Failed Messages for Analytics Group
+GET {{ConsumerService_HostAddress}}/api/consumer/failed/analytics-group?limit=50
+Accept: application/json
+
+### Test Message Processing - User Event
+POST {{ConsumerService_HostAddress}}/api/consumer/test-process
+Content-Type: application/json
+
+{
+  "messageId": "test-msg-001",
+  "topic": "user-events",
+  "content": "{\"userId\": \"12345\", \"action\": \"user_created\", \"timestamp\": \"2025-07-17T10:00:00Z\"}",
+  "consumerGroup": "default-consumer-group"
+}
+
+### Test Message Processing - Order Event
+POST {{ConsumerService_HostAddress}}/api/consumer/test-process
+Content-Type: application/json
+
+{
+  "messageId": "test-msg-002",
+  "topic": "order-events",
+  "content": "{\"orderId\": \"ORD-67890\", \"userId\": \"12345\", \"action\": \"order_placed\"}",
+  "consumerGroup": "payment-service"
+}
+
+### Test Message Processing - Notification Event
+POST {{ConsumerService_HostAddress}}/api/consumer/test-process
+Content-Type: application/json
+
+{
+  "messageId": "test-msg-003",
+  "topic": "notification-events",
+  "content": "{\"notificationType\": \"email\", \"userId\": \"12345\", \"template\": \"welcome\"}",
+  "consumerGroup": "notification-group"
+}

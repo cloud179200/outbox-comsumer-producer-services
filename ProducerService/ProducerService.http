@@ -1,0 +1,168 @@
+@ProducerService_HostAddress = http://localhost:5299
+
+### Health Check
+GET {{ProducerService_HostAddress}}/api/messages/health
+Accept: application/json
+
+### === TOPIC REGISTRATION ENDPOINTS ===
+
+### Register a User Events Topic with Consumer Groups
+POST {{ProducerService_HostAddress}}/api/topics/register
+Content-Type: application/json
+
+{
+  "topicName": "user-events",
+  "description": "Events related to user management (creation, updates, deletions)",
+  "consumerGroups": [
+    {
+      "consumerGroupName": "default-consumer-group",
+      "requiresAcknowledgment": true,
+      "acknowledgmentTimeoutMinutes": 30,
+      "maxRetries": 3
+    },
+    {
+      "consumerGroupName": "analytics-group",
+      "requiresAcknowledgment": true,
+      "acknowledgmentTimeoutMinutes": 15,
+      "maxRetries": 2
+    }
+  ]
+}
+
+### Register an Order Events Topic
+POST {{ProducerService_HostAddress}}/api/topics/register
+Content-Type: application/json
+
+{
+  "topicName": "order-events",
+  "description": "Events related to order processing",
+  "consumerGroups": [
+    {
+      "consumerGroupName": "default-consumer-group",
+      "requiresAcknowledgment": true,
+      "acknowledgmentTimeoutMinutes": 30,
+      "maxRetries": 3
+    },
+    {
+      "consumerGroupName": "payment-service",
+      "requiresAcknowledgment": true,
+      "acknowledgmentTimeoutMinutes": 60,
+      "maxRetries": 5
+    },
+    {
+      "consumerGroupName": "inventory-service",
+      "requiresAcknowledgment": true,
+      "acknowledgmentTimeoutMinutes": 20,
+      "maxRetries": 3
+    }
+  ]
+}
+
+### Register a Notification Events Topic
+POST {{ProducerService_HostAddress}}/api/topics/register
+Content-Type: application/json
+
+{
+  "topicName": "notification-events",
+  "description": "Events for sending notifications (email, SMS, push)",
+  "consumerGroups": [
+    {
+      "consumerGroupName": "notification-group",
+      "requiresAcknowledgment": true,
+      "acknowledgmentTimeoutMinutes": 10,
+      "maxRetries": 2
+    }
+  ]
+}
+
+### Get All Registered Topics
+GET {{ProducerService_HostAddress}}/api/topics
+Accept: application/json
+
+### Get Specific Topic by ID (replace {id} with actual topic ID)
+GET {{ProducerService_HostAddress}}/api/topics/1
+Accept: application/json
+
+### Get Topic by Name
+GET {{ProducerService_HostAddress}}/api/topics/by-name/user-events
+Accept: application/json
+
+### Add Consumer Group to Existing Topic (replace {topicId} with actual ID)
+POST {{ProducerService_HostAddress}}/api/topics/1/consumer-groups
+Content-Type: application/json
+
+{
+  "consumerGroupName": "audit-service",
+  "requiresAcknowledgment": true,
+  "acknowledgmentTimeoutMinutes": 45,
+  "maxRetries": 2
+}
+
+### === MESSAGE SENDING ENDPOINTS ===
+
+### Send User Event to All Registered Consumer Groups
+POST {{ProducerService_HostAddress}}/api/messages/send
+Content-Type: application/json
+
+{
+  "topic": "user-events",
+  "message": "{\"userId\": \"12345\", \"action\": \"user_created\", \"timestamp\": \"2025-07-17T10:00:00Z\", \"data\": {\"email\": \"john.doe@example.com\", \"name\": \"John Doe\"}}"
+}
+
+### Send Order Event to Specific Consumer Group
+POST {{ProducerService_HostAddress}}/api/messages/send
+Content-Type: application/json
+
+{
+  "topic": "order-events",
+  "message": "{\"orderId\": \"ORD-67890\", \"userId\": \"12345\", \"action\": \"order_placed\", \"timestamp\": \"2025-07-17T10:05:00Z\", \"data\": {\"amount\": 99.99, \"currency\": \"USD\", \"items\": [\"item1\", \"item2\"]}}",
+  "consumerGroup": "payment-service"
+}
+
+### Send Notification Event
+POST {{ProducerService_HostAddress}}/api/messages/send
+Content-Type: application/json
+
+{
+  "topic": "notification-events",
+  "message": "{\"notificationType\": \"email\", \"userId\": \"12345\", \"timestamp\": \"2025-07-17T10:15:00Z\", \"data\": {\"template\": \"welcome\", \"recipient\": \"john.doe@example.com\"}}"
+}
+
+### === MESSAGE TRACKING ENDPOINTS ===
+
+### Get All Pending Messages
+GET {{ProducerService_HostAddress}}/api/messages/pending
+Accept: application/json
+
+### Get Messages for Specific Consumer Group
+GET {{ProducerService_HostAddress}}/api/messages/consumer-group/default-consumer-group
+Accept: application/json
+
+### Get Unacknowledged Messages (30 minutes timeout)
+GET {{ProducerService_HostAddress}}/api/messages/unacknowledged/default-consumer-group?timeoutMinutes=30
+Accept: application/json
+
+### Get Message Status (replace with actual message ID)
+GET {{ProducerService_HostAddress}}/api/messages/{{messageId}}/status
+Accept: application/json
+
+### Manual Acknowledgment (replace with actual message ID)
+POST {{ProducerService_HostAddress}}/api/messages/acknowledge
+Content-Type: application/json
+
+{
+  "messageId": "{{messageId}}",
+  "consumerGroup": "default-consumer-group",
+  "success": true
+}
+
+### Manual Failed Acknowledgment (replace with actual message ID)
+POST {{ProducerService_HostAddress}}/api/messages/acknowledge
+Content-Type: application/json
+
+{
+  "messageId": "{{messageId}}",
+  "consumerGroup": "default-consumer-group",
+  "success": false,
+  "errorMessage": "Processing failed due to validation error"
+}

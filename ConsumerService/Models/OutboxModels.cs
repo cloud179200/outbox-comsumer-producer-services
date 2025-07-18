@@ -12,6 +12,15 @@ public class OutboxMessage
   public DateTime? LastRetryAt { get; set; }
   public string? ErrorMessage { get; set; }
   public string ConsumerGroup { get; set; } = string.Empty;
+
+  // Targeted retry properties
+  public bool IsRetry { get; set; } = false;
+  public string? TargetConsumerServiceId { get; set; }
+  public string? OriginalMessageId { get; set; }
+  public DateTime? ScheduledRetryAt { get; set; }
+
+  // Idempotency key for preventing duplicate processing
+  public string IdempotencyKey { get; set; } = string.Empty;
 }
 
 public enum OutboxMessageStatus
@@ -40,6 +49,13 @@ public class ConsumerMessage
   public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
   public string ProducerServiceId { get; set; } = string.Empty;
   public string ProducerInstanceId { get; set; } = string.Empty;
+
+  // Retry and targeting properties
+  public bool IsRetry { get; set; } = false;
+  public string? TargetConsumerServiceId { get; set; }
+  public string? OriginalMessageId { get; set; }
+  public string IdempotencyKey { get; set; } = string.Empty;
+  public int RetryCount { get; set; } = 0;
 }
 
 public class ProcessedMessage
@@ -51,8 +67,8 @@ public class ProcessedMessage
   public string? Content { get; set; }
   public string ProducerServiceId { get; set; } = string.Empty;
   public string ProducerInstanceId { get; set; } = string.Empty;
-  public string ConsumerServiceId { get; set; } = string.Empty;
-  public string ConsumerInstanceId { get; set; } = string.Empty;
+  public string ConsumerServiceId { get; set; } = string.Empty; public string ConsumerInstanceId { get; set; } = string.Empty;
+  public string IdempotencyKey { get; set; } = string.Empty;
 }
 
 public class FailedMessage

@@ -40,22 +40,47 @@ public class KafkaProducerService : IKafkaProducerService, IDisposable
   {
     try
     {
+      var messagePayload = new
+      {
+        MessageId = message.Id,
+        Content = message.Message,
+        ConsumerGroup = message.ConsumerGroup,
+        Timestamp = message.CreatedAt,
+        ProducerServiceId = message.ProducerServiceId,
+        ProducerInstanceId = message.ProducerInstanceId,
+        IsRetry = message.IsRetry,
+        TargetConsumerServiceId = message.TargetConsumerServiceId,
+        OriginalMessageId = message.OriginalMessageId,
+        IdempotencyKey = message.IdempotencyKey,
+        RetryCount = message.RetryCount
+      };
+
+      var headers = new Headers
+      {
+        { "MessageId", System.Text.Encoding.UTF8.GetBytes(message.Id) },
+        { "ConsumerGroup", System.Text.Encoding.UTF8.GetBytes(message.ConsumerGroup) },
+        { "CreatedAt", System.Text.Encoding.UTF8.GetBytes(message.CreatedAt.ToString("O")) },
+        { "ProducerServiceId", System.Text.Encoding.UTF8.GetBytes(message.ProducerServiceId) },
+        { "ProducerInstanceId", System.Text.Encoding.UTF8.GetBytes(message.ProducerInstanceId) },
+        { "IsRetry", System.Text.Encoding.UTF8.GetBytes(message.IsRetry.ToString()) },
+        { "IdempotencyKey", System.Text.Encoding.UTF8.GetBytes(message.IdempotencyKey) }
+      };
+
+      if (!string.IsNullOrEmpty(message.TargetConsumerServiceId))
+      {
+        headers.Add("TargetConsumerServiceId", System.Text.Encoding.UTF8.GetBytes(message.TargetConsumerServiceId));
+      }
+
+      if (!string.IsNullOrEmpty(message.OriginalMessageId))
+      {
+        headers.Add("OriginalMessageId", System.Text.Encoding.UTF8.GetBytes(message.OriginalMessageId));
+      }
+
       var kafkaMessage = new Message<string, string>
       {
         Key = message.Id,
-        Value = JsonConvert.SerializeObject(new
-        {
-          MessageId = message.Id,
-          Content = message.Message,
-          ConsumerGroup = message.ConsumerGroup,
-          Timestamp = message.CreatedAt
-        }),
-        Headers = new Headers
-                {
-                    { "MessageId", System.Text.Encoding.UTF8.GetBytes(message.Id) },
-                    { "ConsumerGroup", System.Text.Encoding.UTF8.GetBytes(message.ConsumerGroup) },
-                    { "CreatedAt", System.Text.Encoding.UTF8.GetBytes(message.CreatedAt.ToString("O")) }
-                }
+        Value = JsonConvert.SerializeObject(messagePayload),
+        Headers = headers
       };
 
       var deliveryResult = await _producer.ProduceAsync(message.Topic, kafkaMessage);

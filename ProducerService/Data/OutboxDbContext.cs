@@ -20,9 +20,7 @@ public class OutboxDbContext : DbContext
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
-    base.OnModelCreating(modelBuilder);
-
-    // OutboxMessage configuration
+    base.OnModelCreating(modelBuilder);    // OutboxMessage configuration
     modelBuilder.Entity<OutboxMessage>(entity =>
     {
       entity.HasKey(e => e.Id);
@@ -32,10 +30,15 @@ public class OutboxDbContext : DbContext
       entity.Property(e => e.ConsumerGroup).HasMaxLength(200).IsRequired();
       entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
       entity.Property(e => e.Status).HasConversion<string>();
+      entity.Property(e => e.TargetConsumerServiceId).HasMaxLength(100);
+      entity.Property(e => e.OriginalMessageId).HasMaxLength(50);
+      entity.Property(e => e.IdempotencyKey).HasMaxLength(100);
 
       entity.HasIndex(e => new { e.Status, e.CreatedAt });
       entity.HasIndex(e => new { e.Topic, e.ConsumerGroup });
       entity.HasIndex(e => e.CreatedAt);
+      entity.HasIndex(e => e.IdempotencyKey);
+      entity.HasIndex(e => new { e.IsRetry, e.ScheduledRetryAt });
 
       // Foreign key relationship
       entity.HasOne(e => e.TopicRegistration)

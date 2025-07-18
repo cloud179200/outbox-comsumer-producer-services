@@ -17,7 +17,6 @@ public class MessageProcessor : IMessageProcessor
     _logger = logger;
     _consumerTracking = consumerTracking;
   }
-
   public async Task<bool> ProcessMessageAsync(ConsumerMessage message)
   {
     try
@@ -25,11 +24,20 @@ public class MessageProcessor : IMessageProcessor
       _logger.LogInformation("Processing message {MessageId} from topic {Topic} for consumer group {ConsumerGroup}",
           message.MessageId, message.Topic, message.ConsumerGroup);
 
-      // Check if message was already processed (idempotency)
+      // Check if message was already processed (idempotency) - check by both messageId and idempotencyKey
       if (await _consumerTracking.IsMessageProcessedAsync(message.MessageId, message.ConsumerGroup))
       {
         _logger.LogInformation("Message {MessageId} already processed by consumer group {ConsumerGroup}, skipping",
             message.MessageId, message.ConsumerGroup);
+        return true;
+      }
+
+      // Also check by idempotency key if provided
+      if (!string.IsNullOrEmpty(message.IdempotencyKey) &&
+          await _consumerTracking.IsMessageProcessedByIdempotencyKeyAsync(message.IdempotencyKey, message.ConsumerGroup))
+      {
+        _logger.LogInformation("Message with idempotency key {IdempotencyKey} already processed by consumer group {ConsumerGroup}, skipping",
+            message.IdempotencyKey, message.ConsumerGroup);
         return true;
       }
 
@@ -46,7 +54,8 @@ public class MessageProcessor : IMessageProcessor
             message.Topic,
             message.Content,
             message.ProducerServiceId,
-            message.ProducerInstanceId);
+            message.ProducerInstanceId,
+            message.IdempotencyKey);
         _logger.LogInformation("Message {MessageId} processed successfully", message.MessageId);
       }
       else

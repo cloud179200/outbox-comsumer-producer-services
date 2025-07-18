@@ -14,6 +14,8 @@ public interface IOutboxService
   Task<bool> DeleteMessageAsync(string messageId);
   Task<List<OutboxMessage>> GetMessagesForConsumerGroupAsync(string consumerGroup, int limit = 100);
   Task<List<OutboxMessage>> CreateMessagesForTopicAsync(string topicName, string message, string? specificConsumerGroup = null);
+  Task<int> CleanupOldMessagesAsync(int retentionDays);
+  Task<OutboxMessage?> CreateRetryMessageAsync(OutboxMessage originalMessage, string? targetConsumerServiceId = null);
 }
 
 public class OutboxPostgreSqlService : IOutboxService
@@ -219,7 +221,6 @@ public class OutboxPostgreSqlService : IOutboxService
       return false;
     }
   }
-
   public async Task<List<OutboxMessage>> GetMessagesForConsumerGroupAsync(string consumerGroup, int limit = 100)
   {
     try
@@ -235,6 +236,78 @@ public class OutboxPostgreSqlService : IOutboxService
     {
       _logger.LogError(ex, "Error getting messages for consumer group {ConsumerGroup}", consumerGroup);
       return new List<OutboxMessage>();
+    }
+  }
+  public async Task<int> CleanupOldMessagesAsync(int retentionDays)
+  {
+    try
+    {
+      var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
+
+      var oldMessages = await _dbContext.OutboxMessages
+        .Where(m => (m.Status == OutboxMessageStatus.Acknowledged || m.Status == OutboxMessageStatus.Failed || m.Status == OutboxMessageStatus.Expired) &&
+                   m.CreatedAt < cutoffDate)
+        .ToListAsync();
+
+      if (oldMessages.Any())
+      {
+        _dbContext.OutboxMessages.RemoveRange(oldMessages);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("Cleaned up {Count} old messages older than {Days} days", oldMessages.Count, retentionDays);
+      }
+
+      return oldMessages.Count;
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error cleaning up old messages");
+      return 0;
+    }
+  }
+
+  public async Task<OutboxMessage?> CreateRetryMessageAsync(OutboxMessage originalMessage, string? targetConsumerServiceId = null)
+  {
+    try
+    {
+      // Create a retry message with targeting
+      var retryMessage = new OutboxMessage
+      {
+        Id = Guid.NewGuid().ToString(),
+        Topic = originalMessage.Topic,
+        Message = originalMessage.Message,
+        ConsumerGroup = originalMessage.ConsumerGroup,
+        TopicRegistrationId = originalMessage.TopicRegistrationId,
+        Status = OutboxMessageStatus.Pending,
+        CreatedAt = DateTime.UtcNow,
+        ProducerServiceId = _currentServiceId,
+        ProducerInstanceId = _currentInstanceId,
+        IsRetry = true,
+        TargetConsumerServiceId = targetConsumerServiceId,
+        OriginalMessageId = originalMessage.Id,
+        RetryCount = originalMessage.RetryCount + 1,
+        IdempotencyKey = $"retry-{originalMessage.Id}-{originalMessage.RetryCount + 1}"
+      };
+
+      _dbContext.OutboxMessages.Add(retryMessage);
+
+      // Mark original message as being retried
+      originalMessage.Status = OutboxMessageStatus.Failed;
+      originalMessage.ErrorMessage = $"Retrying with message {retryMessage.Id}";
+      originalMessage.RetryCount++;
+      originalMessage.LastRetryAt = DateTime.UtcNow;
+
+      await _dbContext.SaveChangesAsync();
+
+      _logger.LogInformation("Created retry message {RetryMessageId} for original message {OriginalMessageId} targeting consumer {TargetConsumer}",
+        retryMessage.Id, originalMessage.Id, targetConsumerServiceId ?? "any");
+
+      return retryMessage;
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error creating retry message for {OriginalMessageId}", originalMessage.Id);
+      return null;
     }
   }
 }

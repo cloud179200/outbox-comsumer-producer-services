@@ -25,11 +25,13 @@ public class ConsumerDbContext : DbContext
       entity.Property(e => e.ProducerInstanceId).HasMaxLength(100);
       entity.Property(e => e.ConsumerServiceId).HasMaxLength(100);
       entity.Property(e => e.ConsumerInstanceId).HasMaxLength(100);
+      entity.Property(e => e.IdempotencyKey).HasMaxLength(100);
 
       entity.HasIndex(e => new { e.ConsumerGroup, e.ProcessedAt });
       entity.HasIndex(e => e.ProcessedAt);
       entity.HasIndex(e => new { e.ProducerServiceId, e.ProducerInstanceId });
-    });    // FailedMessage configuration
+      entity.HasIndex(e => new { e.IdempotencyKey, e.ConsumerGroup });
+    });// FailedMessage configuration
     modelBuilder.Entity<FailedMessage>(entity =>
     {
       entity.HasKey(e => e.Id);

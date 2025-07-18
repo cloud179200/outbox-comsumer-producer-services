@@ -18,6 +18,15 @@ public class OutboxMessage
   public string ProducerServiceId { get; set; } = string.Empty;
   public string ProducerInstanceId { get; set; } = string.Empty;
 
+  // Targeted retry properties
+  public bool IsRetry { get; set; } = false;
+  public string? TargetConsumerServiceId { get; set; }
+  public string? OriginalMessageId { get; set; }
+  public DateTime? ScheduledRetryAt { get; set; }
+
+  // Idempotency key for preventing duplicate processing
+  public string IdempotencyKey { get; set; } = string.Empty;
+
   // Navigation property
   public TopicRegistration? TopicRegistration { get; set; }
 }
@@ -256,4 +265,6 @@ public class AgentResponse
   public DateTime LastHeartbeat { get; set; }
   public string? Version { get; set; }
   public ServiceType ServiceType { get; set; }
+  public string[] AssignedConsumerGroups { get; set; } = Array.Empty<string>();
+  public string[] AssignedTopics { get; set; } = Array.Empty<string>();
 }

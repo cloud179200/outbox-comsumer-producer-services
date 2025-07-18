@@ -7,8 +7,9 @@ namespace ConsumerService.Services;
 public interface IConsumerTrackingService
 {
   Task<bool> IsMessageProcessedAsync(string messageId, string consumerGroup);
+  Task<bool> IsMessageProcessedByIdempotencyKeyAsync(string idempotencyKey, string consumerGroup);
   Task MarkMessageAsProcessingAsync(ConsumerMessage message);
-  Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null, string? producerServiceId = null, string? producerInstanceId = null);
+  Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null, string? producerServiceId = null, string? producerInstanceId = null, string idempotencyKey = "");
   Task MarkMessageAsFailedAsync(string messageId, string consumerGroup, string topic, string errorMessage, string? content = null, string? producerServiceId = null, string? producerInstanceId = null);
   Task<List<ProcessedMessage>> GetProcessedMessagesAsync(string consumerGroup, int limit = 100);
   Task<List<FailedMessage>> GetFailedMessagesAsync(string consumerGroup, int limit = 100);
@@ -26,7 +27,6 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
     _logger = logger;
     _configuration = configuration;
   }
-
   public async Task<bool> IsMessageProcessedAsync(string messageId, string consumerGroup)
   {
     try
@@ -47,6 +47,28 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
     }
   }
 
+  public async Task<bool> IsMessageProcessedByIdempotencyKeyAsync(string idempotencyKey, string consumerGroup)
+  {
+    try
+    {
+      if (string.IsNullOrEmpty(idempotencyKey))
+        return false;
+
+      var isProcessed = await _dbContext.ProcessedMessages
+          .AnyAsync(p => p.IdempotencyKey == idempotencyKey && p.ConsumerGroup == consumerGroup);
+
+      _logger.LogDebug("Message with idempotency key {IdempotencyKey} processed status for consumer group {ConsumerGroup}: {IsProcessed}",
+          idempotencyKey, consumerGroup, isProcessed);
+
+      return isProcessed;
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error checking if message with idempotency key {IdempotencyKey} is processed for consumer group {ConsumerGroup}",
+          idempotencyKey, consumerGroup); return false;
+    }
+  }
+
   public async Task MarkMessageAsProcessingAsync(ConsumerMessage message)
   {
     try
@@ -64,7 +86,7 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
           message.MessageId, message.ConsumerGroup);
     }
   }
-  public async Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null, string? producerServiceId = null, string? producerInstanceId = null)
+  public async Task MarkMessageAsProcessedAsync(string messageId, string consumerGroup, string topic, string? content = null, string? producerServiceId = null, string? producerInstanceId = null, string idempotencyKey = "")
   {
     try
     {
@@ -86,7 +108,8 @@ public class ConsumerPostgreSqlTrackingService : IConsumerTrackingService
         ProducerServiceId = producerServiceId ?? "",
         ProducerInstanceId = producerInstanceId ?? "",
         ConsumerServiceId = consumerServiceId,
-        ConsumerInstanceId = consumerInstanceId
+        ConsumerInstanceId = consumerInstanceId,
+        IdempotencyKey = idempotencyKey
       };
 
       // Use upsert pattern to handle duplicates

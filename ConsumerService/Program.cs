@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using ConsumerService.Services;
-using ConsumerService.BackgroundServices;
 using ConsumerService.Data;
 using ConsumerService.Models;
+using ConsumerService.Jobs;
 using System.Net;
+using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,11 +21,23 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 
-// PostgreSQL configuration
+// Database configuration - PostgreSQL or SQLite for testing
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password";
+
 builder.Services.AddDbContext<ConsumerDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    if (connectionString.StartsWith("Data Source="))
+    {
+        // SQLite configuration for testing
+        options.UseSqlite(connectionString);
+    }
+    else
+    {
+        // PostgreSQL configuration for production
+        options.UseNpgsql(connectionString);
+    }
+});
 
 // Register services
 builder.Services.AddScoped<IKafkaConsumerService, KafkaConsumerService>();
@@ -32,8 +45,60 @@ builder.Services.AddScoped<IMessageProcessor, MessageProcessor>();
 builder.Services.AddScoped<IConsumerTrackingService, ConsumerPostgreSqlTrackingService>();
 builder.Services.AddHttpClient();
 
-// Background services for consumers
-builder.Services.AddHostedService<ConsumerBackgroundService>();
+// Get consumer group configuration from appsettings
+var consumerGroups = builder.Configuration.GetSection("ConsumerGroups").Get<ConsumerGroupConfig[]>()
+    ?? new ConsumerGroupConfig[]
+    {
+        new ConsumerGroupConfig
+        {
+            GroupName = "default-consumer-group",
+            Topics = new[] { "user-events", "order-events" }
+        },
+        new ConsumerGroupConfig
+        {
+            GroupName = "analytics-group",
+            Topics = new[] { "analytics-events" }
+        },
+        new ConsumerGroupConfig
+        {
+            GroupName = "notification-group",
+            Topics = new[] { "notification-events" }
+        }
+    };
+
+// Configure Quartz.NET
+builder.Services.AddQuartz(q =>
+{
+    // Consumer heartbeat job
+    var heartbeatJobKey = new JobKey("ConsumerHeartbeat");
+    q.AddJob<ConsumerHeartbeatJob>(opts => opts.WithIdentity(heartbeatJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(heartbeatJobKey)
+        .WithIdentity("ConsumerHeartbeat-trigger")
+        .WithSimpleSchedule(x => x
+            .WithIntervalInSeconds(30)
+            .RepeatForever()));
+
+    // Add consumer jobs for each consumer group
+    foreach (var consumerGroup in consumerGroups)
+    {
+        var jobKey = new JobKey($"Consumer-{consumerGroup.GroupName}");
+        q.AddJob<ConsumerJob>(opts => opts
+            .WithIdentity(jobKey)
+            .UsingJobData("ConsumerGroup", consumerGroup.GroupName)
+            .UsingJobData("Topics", string.Join(",", consumerGroup.Topics)));
+
+        q.AddTrigger(opts => opts
+            .ForJob(jobKey)
+            .WithIdentity($"Consumer-{consumerGroup.GroupName}-trigger")
+            .WithSimpleSchedule(x => x
+                .WithIntervalInSeconds(5) // Poll every 5 seconds
+                .RepeatForever()));
+    }
+});
+
+// Add Quartz hosted service
+builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
 // Logging
 builder.Logging.AddConsole();

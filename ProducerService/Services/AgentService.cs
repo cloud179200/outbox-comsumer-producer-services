@@ -188,9 +188,7 @@ public class AgentService : IAgentService
 
       await _dbContext.SaveChangesAsync();
 
-      _logger.LogInformation("Consumer agent {ServiceId} registered successfully", request.ServiceId);
-
-      return new AgentResponse
+      _logger.LogInformation("Consumer agent {ServiceId} registered successfully", request.ServiceId); return new AgentResponse
       {
         Id = agent.Id,
         ServiceId = agent.ServiceId,
@@ -201,7 +199,9 @@ public class AgentService : IAgentService
         StartedAt = agent.StartedAt,
         LastHeartbeat = agent.LastHeartbeat,
         Version = agent.Version,
-        ServiceType = ServiceType.Consumer
+        ServiceType = ServiceType.Consumer,
+        AssignedConsumerGroups = agent.AssignedConsumerGroups,
+        AssignedTopics = agent.AssignedTopics
       };
     }
     catch (Exception ex)
@@ -328,21 +328,21 @@ public class AgentService : IAgentService
       var agents = await _dbContext.ConsumerServiceAgents
           .Where(a => a.Status == AgentStatus.Active)
           .OrderBy(a => a.ServiceId)
-          .ToListAsync();
-
-      return agents.Select(a => new AgentResponse
-      {
-        Id = a.Id,
-        ServiceId = a.ServiceId,
-        InstanceId = a.InstanceId,
-        ServiceName = a.ServiceName,
-        BaseUrl = a.BaseUrl,
-        Status = a.Status,
-        StartedAt = a.StartedAt,
-        LastHeartbeat = a.LastHeartbeat,
-        Version = a.Version,
-        ServiceType = ServiceType.Consumer
-      }).ToList();
+          .ToListAsync(); return agents.Select(a => new AgentResponse
+          {
+            Id = a.Id,
+            ServiceId = a.ServiceId,
+            InstanceId = a.InstanceId,
+            ServiceName = a.ServiceName,
+            BaseUrl = a.BaseUrl,
+            Status = a.Status,
+            StartedAt = a.StartedAt,
+            LastHeartbeat = a.LastHeartbeat,
+            Version = a.Version,
+            ServiceType = ServiceType.Consumer,
+            AssignedConsumerGroups = a.AssignedConsumerGroups,
+            AssignedTopics = a.AssignedTopics
+          }).ToList();
     }
     catch (Exception ex)
     {
@@ -386,9 +386,7 @@ public class AgentService : IAgentService
     try
     {
       var agent = await _dbContext.ConsumerServiceAgents
-          .FirstOrDefaultAsync(a => a.ServiceId == serviceId);
-
-      if (agent == null) return null;
+          .FirstOrDefaultAsync(a => a.ServiceId == serviceId); if (agent == null) return null;
 
       return new AgentResponse
       {
@@ -401,7 +399,9 @@ public class AgentService : IAgentService
         StartedAt = agent.StartedAt,
         LastHeartbeat = agent.LastHeartbeat,
         Version = agent.Version,
-        ServiceType = ServiceType.Consumer
+        ServiceType = ServiceType.Consumer,
+        AssignedConsumerGroups = agent.AssignedConsumerGroups,
+        AssignedTopics = agent.AssignedTopics
       };
     }
     catch (Exception ex)
@@ -518,21 +518,21 @@ public class AgentService : IAgentService
       var consumers = await _dbContext.ConsumerServiceAgents
           .Where(a => a.Status == AgentStatus.Active &&
                      a.AssignedConsumerGroups.Contains(consumerGroup))
-          .ToListAsync();
-
-      return consumers.Select(a => new AgentResponse
-      {
-        Id = a.Id,
-        ServiceId = a.ServiceId,
-        InstanceId = a.InstanceId,
-        ServiceName = a.ServiceName,
-        BaseUrl = a.BaseUrl,
-        Status = a.Status,
-        StartedAt = a.StartedAt,
-        LastHeartbeat = a.LastHeartbeat,
-        Version = a.Version,
-        ServiceType = ServiceType.Consumer
-      }).ToList();
+          .ToListAsync(); return consumers.Select(a => new AgentResponse
+          {
+            Id = a.Id,
+            ServiceId = a.ServiceId,
+            InstanceId = a.InstanceId,
+            ServiceName = a.ServiceName,
+            BaseUrl = a.BaseUrl,
+            Status = a.Status,
+            StartedAt = a.StartedAt,
+            LastHeartbeat = a.LastHeartbeat,
+            Version = a.Version,
+            ServiceType = ServiceType.Consumer,
+            AssignedConsumerGroups = a.AssignedConsumerGroups,
+            AssignedTopics = a.AssignedTopics
+          }).ToList();
     }
     catch (Exception ex)
     {
@@ -695,21 +695,21 @@ public class AgentService : IAgentService
       // In production, you could consider message processing rate, queue depth, etc.
       var bestConsumer = consumers
           .OrderByDescending(a => a.LastHeartbeat)
-          .First();
-
-      return new AgentResponse
-      {
-        Id = bestConsumer.Id,
-        ServiceId = bestConsumer.ServiceId,
-        InstanceId = bestConsumer.InstanceId,
-        ServiceName = bestConsumer.ServiceName,
-        BaseUrl = bestConsumer.BaseUrl,
-        Status = bestConsumer.Status,
-        StartedAt = bestConsumer.StartedAt,
-        LastHeartbeat = bestConsumer.LastHeartbeat,
-        Version = bestConsumer.Version,
-        ServiceType = ServiceType.Consumer
-      };
+          .First(); return new AgentResponse
+          {
+            Id = bestConsumer.Id,
+            ServiceId = bestConsumer.ServiceId,
+            InstanceId = bestConsumer.InstanceId,
+            ServiceName = bestConsumer.ServiceName,
+            BaseUrl = bestConsumer.BaseUrl,
+            Status = bestConsumer.Status,
+            StartedAt = bestConsumer.StartedAt,
+            LastHeartbeat = bestConsumer.LastHeartbeat,
+            Version = bestConsumer.Version,
+            ServiceType = ServiceType.Consumer,
+            AssignedConsumerGroups = bestConsumer.AssignedConsumerGroups,
+            AssignedTopics = bestConsumer.AssignedTopics
+          };
     }
     catch (Exception ex)
     {

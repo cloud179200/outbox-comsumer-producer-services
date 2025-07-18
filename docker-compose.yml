@@ -3,7 +3,7 @@ version: "3.8"
 services:
   # PostgreSQL for outbox pattern storage
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: outbox-postgres
     ports:
       - "5432:5432"

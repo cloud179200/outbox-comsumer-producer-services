@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Docker System",
+      "type": "shell",
+      "command": "docker-manager.ps1 -Action Start",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop Docker System",
+      "type": "shell",
+      "command": "docker-manager.ps1 -Action Stop",
+      "group": "build",
+      "isBackground": false,
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Infrastructure Only",
+      "type": "shell",
+      "command": "docker-simple.ps1 -Action Start",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Test System Health",
+      "type": "shell",
+      "command": "docker-test.ps1",
+      "group": "test",
+      "isBackground": false,
+      "problemMatcher": []
+    }
+  ]
+}

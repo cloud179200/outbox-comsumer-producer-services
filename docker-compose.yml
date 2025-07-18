@@ -44,7 +44,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_NUM_PARTITIONS: 6
     restart: unless-stopped
 
   # Kafka UI for monitoring
@@ -72,6 +72,208 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
     restart: unless-stopped
+
+  # Producer Services (3 instances)
+  producer1:
+    build:
+      context: ./ProducerService
+      dockerfile: Dockerfile
+    container_name: outbox-producer1
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5301:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=producer-1
+      - INSTANCE_ID=producer-1-instance
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+    restart: unless-stopped
+    networks:
+      - default
+
+  producer2:
+    build:
+      context: ./ProducerService
+      dockerfile: Dockerfile
+    container_name: outbox-producer2
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5302:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=producer-2
+      - INSTANCE_ID=producer-2-instance
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+    restart: unless-stopped
+    networks:
+      - default
+
+  producer3:
+    build:
+      context: ./ProducerService
+      dockerfile: Dockerfile
+    container_name: outbox-producer3
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5303:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=producer-3
+      - INSTANCE_ID=producer-3-instance
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Consumer Services Group A (3 instances)
+  consumer1:
+    build:
+      context: ./ConsumerService
+      dockerfile: Dockerfile
+    container_name: outbox-consumer1
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5401:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=consumer-1
+      - INSTANCE_ID=consumer-1-instance
+      - KAFKA_CONSUMER_GROUP=group-a
+      - KAFKA_TOPICS=shared-events
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+      - ProducerService__BaseUrl=http://producer1
+    restart: unless-stopped
+    networks:
+      - default
+
+  consumer2:
+    build:
+      context: ./ConsumerService
+      dockerfile: Dockerfile
+    container_name: outbox-consumer2
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5402:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=consumer-2
+      - INSTANCE_ID=consumer-2-instance
+      - KAFKA_CONSUMER_GROUP=group-a
+      - KAFKA_TOPICS=shared-events
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+      - ProducerService__BaseUrl=http://producer1
+    restart: unless-stopped
+    networks:
+      - default
+
+  consumer3:
+    build:
+      context: ./ConsumerService
+      dockerfile: Dockerfile
+    container_name: outbox-consumer3
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5403:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=consumer-3
+      - INSTANCE_ID=consumer-3-instance
+      - KAFKA_CONSUMER_GROUP=group-a
+      - KAFKA_TOPICS=shared-events
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+      - ProducerService__BaseUrl=http://producer1
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Consumer Services Group B (2 instances)
+  consumer4:
+    build:
+      context: ./ConsumerService
+      dockerfile: Dockerfile
+    container_name: outbox-consumer4
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5404:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=consumer-4
+      - INSTANCE_ID=consumer-4-instance
+      - KAFKA_CONSUMER_GROUP=group-b
+      - KAFKA_TOPICS=shared-events
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+      - ProducerService__BaseUrl=http://producer1
+    restart: unless-stopped
+    networks:
+      - default
+
+  consumer5:
+    build:
+      context: ./ConsumerService
+      dockerfile: Dockerfile
+    container_name: outbox-consumer5
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5405:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=consumer-5
+      - INSTANCE_ID=consumer-5-instance
+      - KAFKA_CONSUMER_GROUP=group-b
+      - KAFKA_TOPICS=shared-events
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+      - ProducerService__BaseUrl=http://producer1
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Consumer Services Group C (1 instance)
+  consumer6:
+    build:
+      context: ./ConsumerService
+      dockerfile: Dockerfile
+    container_name: outbox-consumer6
+    depends_on:
+      - postgres
+      - kafka
+    ports:
+      - "5406:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - SERVICE_ID=consumer-6
+      - INSTANCE_ID=consumer-6-instance
+      - KAFKA_CONSUMER_GROUP=group-c
+      - KAFKA_TOPICS=shared-events
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
+      - ConnectionStrings__Kafka=kafka:9094
+      - ProducerService__BaseUrl=http://producer1
+    restart: unless-stopped
+    networks:
+      - default
 
 volumes:
   postgres_data:

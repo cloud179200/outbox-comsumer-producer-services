@@ -107,11 +107,16 @@ using (var scope = app.Services.CreateScope())
     // Register this producer service instance
     var agentService = scope.ServiceProvider.GetRequiredService<IAgentService>();
     var hostName = Environment.MachineName;
-    var ipAddress = Dns.GetHostAddresses(hostName)
-        .FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString()
-        ?? "127.0.0.1";
-    var port = builder.Configuration.GetValue<int?>("Port")
-      ?? (int.TryParse(builder.Configuration["urls"]?.Split(':').Last().Split(';').First(), out var p) ? p : 5299);
+    var ipAddress = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Split("://").LastOrDefault()?.Split(":").FirstOrDefault() ?? "localhost";
+
+    // For Docker container networking, use the container name as hostname
+    if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" &&
+        Environment.GetEnvironmentVariable("SERVICE_ID") != null)
+    {
+        hostName = Environment.GetEnvironmentVariable("SERVICE_ID") ?? hostName;
+    }
+
+    var port = 80; // Default port for containerized services
 
     var registration = new AgentRegistrationRequest
     {

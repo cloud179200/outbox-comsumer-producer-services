@@ -45,26 +45,52 @@ builder.Services.AddScoped<IMessageProcessor, MessageProcessor>();
 builder.Services.AddScoped<IConsumerTrackingService, ConsumerPostgreSqlTrackingService>();
 builder.Services.AddHttpClient();
 
-// Get consumer group configuration from appsettings
-var consumerGroups = builder.Configuration.GetSection("ConsumerGroups").Get<ConsumerGroupConfig[]>()
-    ?? new ConsumerGroupConfig[]
+// Get consumer group configuration from environment variable or appsettings
+var consumerGroups = GetConsumerGroupConfig(builder.Configuration);
+
+ConsumerGroupConfig[] GetConsumerGroupConfig(IConfiguration configuration)
+{
+    // Check for environment variable configuration first
+    var envConsumerGroup = Environment.GetEnvironmentVariable("KAFKA_CONSUMER_GROUP");
+    var envTopics = Environment.GetEnvironmentVariable("KAFKA_TOPICS");
+
+    if (!string.IsNullOrEmpty(envConsumerGroup))
     {
-        new ConsumerGroupConfig
+        var topics = !string.IsNullOrEmpty(envTopics)
+            ? envTopics.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            : new[] { "shared-events" }; // Default to shared-events topic
+
+        return new ConsumerGroupConfig[]
         {
-            GroupName = "default-consumer-group",
-            Topics = new[] { "user-events", "order-events" }
-        },
-        new ConsumerGroupConfig
+            new ConsumerGroupConfig
+            {
+                GroupName = envConsumerGroup,
+                Topics = topics
+            }
+        };
+    }
+
+    // Fall back to appsettings configuration
+    return configuration.GetSection("ConsumerGroups").Get<ConsumerGroupConfig[]>()
+        ?? new ConsumerGroupConfig[]
         {
-            GroupName = "analytics-group",
-            Topics = new[] { "analytics-events" }
-        },
-        new ConsumerGroupConfig
-        {
-            GroupName = "notification-group",
-            Topics = new[] { "notification-events" }
-        }
-    };
+            new ConsumerGroupConfig
+            {
+                GroupName = "default-consumer-group",
+                Topics = new[] { "user-events", "order-events" }
+            },
+            new ConsumerGroupConfig
+            {
+                GroupName = "analytics-group",
+                Topics = new[] { "analytics-events" }
+            },
+            new ConsumerGroupConfig
+            {
+                GroupName = "notification-group",
+                Topics = new[] { "notification-events" }
+            }
+        };
+}
 
 // Configure Quartz.NET
 builder.Services.AddQuartz(q =>
@@ -123,12 +149,18 @@ async Task RegisterConsumerAgentAsync(string serviceId, string instanceId, IConf
         var producerServiceUrl = configuration["ProducerService:BaseUrl"] ?? "http://localhost:5299";
 
         var hostName = Environment.MachineName;
-        var ipAddress = Dns.GetHostAddresses(hostName)
-            .FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString()
-            ?? "127.0.0.1";
+        var ipAddress = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Split("://").LastOrDefault()?.Split(":").FirstOrDefault() ?? "localhost";
 
-        var port = configuration.GetValue<int?>("Port")
-            ?? (int.TryParse(configuration["urls"]?.Split(':').Last().Split(';').First(), out var p) ? p : 5156); var consumerGroups = configuration.GetSection("ConsumerGroups").Get<ConsumerService.Models.ConsumerGroupConfig[]>()
+        // For Docker container networking, use the container name as hostname
+        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" &&
+            Environment.GetEnvironmentVariable("SERVICE_ID") != null)
+        {
+            hostName = Environment.GetEnvironmentVariable("SERVICE_ID") ?? hostName;
+        }
+
+        var port = 80; // Default port for containerized services
+
+        var consumerGroups = configuration.GetSection("ConsumerGroups").Get<ConsumerService.Models.ConsumerGroupConfig[]>()
             ?? Array.Empty<ConsumerService.Models.ConsumerGroupConfig>();
 
         var assignedGroups = consumerGroups.Select(cg => cg.GroupName).ToArray();

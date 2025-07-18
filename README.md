@@ -1,22 +1,24 @@
-# Outbox Pattern with Redis and Kafka
+# Outbox Pattern with PostgreSQL and Kafka (Docker-Based)
 
-This project implements the Outbox Pattern using Redis for reliable message delivery between producer and consumer services with Kafka as the message broker.
+This project implements the Outbox Pattern using PostgreSQL for reliable message delivery between producer and consumer services with Kafka as the message broker. The entire system is containerized using Docker for easy deployment and scaling.
 
 ## Architecture
 
-The solution consists of two ASP.NET Core services:
+The solution consists of two ASP.NET Core services running in Docker containers:
 
-### Producer Service (Port 5299)
+### Producer Service
 - **API for Message Publishing**: Receives messages and topic information
-- **Outbox Storage**: Stores messages in Redis with tracking information
+- **Outbox Storage**: Stores messages in PostgreSQL with tracking information
 - **Background Processing**: Continuously processes pending messages and sends them to Kafka
 - **Acknowledgment Handling**: Tracks consumer acknowledgments and handles retries
+- **Agent Management**: Manages service instances and heartbeat monitoring
 
-### Consumer Service (Port 5287)
+### Consumer Service
 - **Kafka Consumer**: Consumes messages from multiple topics with different consumer groups
 - **Message Processing**: Processes messages with idempotency guarantees
 - **Outbox Tracking**: Tracks processed messages to prevent duplicate processing
 - **Acknowledgment**: Sends acknowledgments back to producer service
+- **Heartbeat Monitoring**: Tracks consumer instance health
 
 ## Key Features
 
@@ -24,57 +26,78 @@ The solution consists of two ASP.NET Core services:
 ✅ **Idempotency**: Prevents duplicate message processing  
 ✅ **Retry Logic**: Automatic retry for failed messages  
 ✅ **Multiple Consumer Groups**: Support for different consumer groups and topics  
-✅ **Monitoring**: Redis and Kafka UI for system monitoring  
-✅ **Scalable**: Can run multiple instances of both services
+✅ **Horizontal Scaling**: Docker-based scaling of producer and consumer instances  
+✅ **Health Monitoring**: Instance heartbeat tracking and health checks  
+✅ **Database Persistence**: PostgreSQL for reliable data storage  
+✅ **Monitoring**: Kafka UI for system monitoring  
+✅ **Containerized**: Full Docker deployment with docker-compose
 
 ## Prerequisites
 
-- .NET 9.0 SDK
 - Docker Desktop
-- Visual Studio 2022 or VS Code
+- PowerShell (for management scripts)
 
 ## Quick Start
 
-### 1. Start Infrastructure
+### 1. Start the Complete System
 
-Start Redis and Kafka using Docker Compose:
+Start the entire system with scaled instances:
 
 ```powershell
-docker-compose up -d
+.\docker-manager.ps1 -Action Start
 ```
 
 This will start:
-- Redis (port 6379)
+- PostgreSQL (port 5432)
 - Kafka (port 9092)
+- Zookeeper (port 2181)
 - Kafka UI (http://localhost:8080)
-- Redis Commander (http://localhost:8081)
+- 3 Producer Service instances (ports 5299, 5399, 5499)
+- 6 Consumer Service instances (ports 5287, 5387, 5487, 5587, 5687, 5787)
 
-### 2. Run Services
+### 2. Simple Start (Infrastructure Only)
 
-#### Option A: Using Visual Studio
-1. Open `OutboxPattern.sln`
-2. Set multiple startup projects (ProducerService and ConsumerService)
-3. Press F5 to run both services
+For development or testing with local services:
 
-#### Option B: Using Command Line
-
-**Terminal 1 - Producer Service:**
 ```powershell
-cd ProducerService
-dotnet run
+.\docker-simple.ps1 -Action Start
 ```
 
-**Terminal 2 - Consumer Service:**
-```powershell
-cd ConsumerService
-dotnet run
-```
-
+This starts only the infrastructure (PostgreSQL, Kafka, Zookeeper, Kafka-UI).
 ### 3. Verify Setup
 
-Check service health:
-- Producer Service: http://localhost:5299/api/messages/health
-- Consumer Service: http://localhost:5287/api/consumer/health
+Check system health:
+
+```powershell
+.\docker-test.ps1
+```
+
+This will test all running services and show their health status.
+
+### 4. Stop the System
+
+```powershell
+.\docker-manager.ps1 -Action Stop
+```
+
+## Docker Management Scripts
+
+### docker-manager.ps1
+Primary management script for the scaled Docker system:
+- Start/Stop complete system with multiple instances
+- Health monitoring and logging
+- Scaling configuration
+
+### docker-simple.ps1  
+Simple infrastructure management:
+- Start/Stop infrastructure only (PostgreSQL, Kafka, Zookeeper, Kafka-UI)
+- Useful for development with local services
+
+### docker-test.ps1
+System testing and validation:
+- Health checks for all services
+- Database connectivity tests
+- Kafka topic verification
 
 ## Usage Examples
 
@@ -86,165 +109,112 @@ curl -X POST "http://localhost:5299/api/messages/send" \
   -d '{
     "topic": "user-events",
     "message": "User John Doe created account",
-    "consumerGroup": "default-consumer-group"
+    "consumerGroup": "consumer-group-1"
   }'
 ```
 
-### Check Message Status
+### Check System Health
 
 ```bash
-curl "http://localhost:5299/api/messages/status/{messageId}"
+curl "http://localhost:5299/api/messages/health"
+curl "http://localhost:5287/api/consumer/health"
 ```
 
-### Get Pending Messages
+### Monitor with Kafka UI
 
-```bash
-curl "http://localhost:5299/api/messages/pending"
-```
-
-### Get Processed Messages for Consumer Group
-
-```bash
-curl "http://localhost:5287/api/consumer/processed/default-consumer-group"
-```
+Visit http://localhost:8080 to:
+- View topics and partitions
+- Monitor consumer groups
+- See message flow and lag
 
 ## Configuration
 
-### Producer Service Settings
+The system uses PostgreSQL for persistent storage and supports multiple consumer groups with different topic subscriptions.
 
-```json
-{
-  "ConnectionStrings": {
-    "Redis": "localhost:6379",
-    "Kafka": "localhost:9092"
-  },
-  "OutboxProcessor": {
-    "ProcessingIntervalMs": 5000,
-    "RetryIntervalMs": 30000,
-    "BatchSize": 100,
-    "RetryTimeoutMinutes": 30,
-    "MaxRetries": 3
-  }
-}
+### Environment Variables
+
+Services automatically detect their environment:
+- `ASPNETCORE_ENVIRONMENT=Development` (default)
+- `ASPNETCORE_ENVIRONMENT=Production` (for production deployment)
+
+### Database Configuration
+
+PostgreSQL connection strings are configured through environment variables:
+- `ConnectionStrings__DefaultConnection` for Producer Service
+- `ConnectionStrings__ConsumerConnection` for Consumer Service
+
+## Scaling
+
+The system supports horizontal scaling through Docker:
+
+```powershell
+# Scale to 5 producers and 10 consumers
+docker-compose up -d --scale outbox-producer=5 --scale outbox-consumer=10
 ```
 
-### Consumer Service Settings
-
-```json
-{
-  "ConnectionStrings": {
-    "Redis": "localhost:6379", 
-    "Kafka": "localhost:9092"
-  },
-  "ConsumerGroups": [
-    {
-      "GroupName": "default-consumer-group",
-      "Topics": ["user-events", "order-events"]
-    },
-    {
-      "GroupName": "analytics-group",
-      "Topics": ["analytics-events"]
-    }
-  ]
-}
-```
-
-## API Endpoints
-
-### Producer Service (http://localhost:5299)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/messages/send` | Send a new message |
-| POST | `/api/messages/acknowledge` | Acknowledge message processing |
-| GET | `/api/messages/status/{id}` | Get message status |
-| GET | `/api/messages/pending` | Get pending messages |
-| GET | `/api/messages/consumer-group/{group}` | Get messages for consumer group |
-| GET | `/api/messages/unacknowledged/{group}` | Get unacknowledged messages |
-| DELETE | `/api/messages/{id}` | Delete message |
-| GET | `/api/messages/health` | Health check |
-
-### Consumer Service (http://localhost:5287)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/consumer/processed/{group}` | Get processed message IDs |
-| POST | `/api/consumer/test-process` | Test message processing |
-| GET | `/api/consumer/health` | Health check |
-
-## Message Flow
-
-1. **Send Message**: Client sends message to Producer API
-2. **Store in Outbox**: Producer stores message in Redis outbox
-3. **Background Processing**: Outbox processor sends message to Kafka
-4. **Consumer Processing**: Consumer receives and processes message
-5. **Acknowledgment**: Consumer sends acknowledgment to Producer
-6. **Cleanup**: Producer updates message status and cleans up
+Consumer instances automatically register with different consumer groups to ensure load distribution.
 
 ## Monitoring
 
 ### Kafka UI (http://localhost:8080)
 - View topics and partitions
 - Monitor consumer groups
-- See message flow
+- See message flow and performance metrics
 
-### Redis Commander (http://localhost:8081)
-- View outbox data structure
-- Monitor Redis keys and values
-- Debug message states
+### Database Monitoring
+- PostgreSQL accessible on port 5432
+- Use your preferred database management tool
+- Monitor outbox tables and message states
 
-### Logs
-Both services provide detailed logging:
-- Message processing status
-- Error handling
-- Retry attempts
-- Performance metrics
+### Service Logs
+```powershell
+# View all service logs
+docker-compose logs -f
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Redis Connection Failed**
-   ```
-   Solution: Ensure Redis is running via docker-compose
-   ```
-
-2. **Kafka Connection Failed** 
-   ```
-   Solution: Ensure Kafka is running and accessible on port 9092
-   ```
-
-3. **Messages Not Being Processed**
-   ```
-   Check: Consumer service logs and Kafka UI for consumer group status
-   ```
-
-4. **Duplicate Message Processing**
-   ```
-   Check: Redis tracking keys and consumer idempotency logic
-   ```
+# View specific service logs
+docker-compose logs -f outbox-producer
+docker-compose logs -f outbox-consumer
+```
 
 ## Development
 
-### Running Tests
+### Building Docker Images
+
+Images are built automatically by docker-compose, but you can build manually:
+
 ```powershell
-dotnet test
+# Build both services
+docker-compose build
+
+# Build specific service
+docker-compose build outbox-producer
+docker-compose build outbox-consumer
 ```
 
-### Building Docker Images
-```powershell
-# Producer Service
-docker build -f ProducerService/Dockerfile -t outbox-producer .
+### Local Development
 
-# Consumer Service  
-docker build -f ConsumerService/Dockerfile -t outbox-consumer .
+For local development, you can run infrastructure only and develop services locally:
+
+```powershell
+# Start infrastructure
+.\docker-simple.ps1 -Action Start
+
+# Run services locally with dotnet run
+cd ProducerService
+dotnet run --urls "http://localhost:5299"
+
+cd ConsumerService  
+dotnet run --urls "http://localhost:5287"
 ```
 
 ## Production Considerations
 
-- Configure appropriate Redis persistence
-- Set up Kafka cluster with replication
+- Configure appropriate PostgreSQL persistence and backup strategies
+- Set up Kafka cluster with replication for high availability
 - Implement proper monitoring and alerting
 - Configure security (authentication/authorization)
 - Set up load balancing for multiple service instances
 - Configure appropriate retry policies and timeouts
+- Use Docker Swarm or Kubernetes for orchestration
+- Set up proper logging and log aggregation
+- Configure health checks and service discovery

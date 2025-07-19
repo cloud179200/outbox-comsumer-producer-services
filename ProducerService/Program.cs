@@ -148,7 +148,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Only use HTTPS redirection in non-containerized environments
+var aspnetEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+var containerServiceId = Environment.GetEnvironmentVariable("SERVICE_ID");
+if (aspnetEnvironment != "Development" || containerServiceId == null)
+{
+    app.UseHttpsRedirection();
+}
+
 app.MapControllers();
 
 app.Run();

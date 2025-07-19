@@ -88,6 +88,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - SERVICE_ID=producer-1
       - INSTANCE_ID=producer-1-instance
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
     restart: unless-stopped
@@ -108,6 +109,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - SERVICE_ID=producer-2
       - INSTANCE_ID=producer-2-instance
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
     restart: unless-stopped
@@ -128,6 +130,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - SERVICE_ID=producer-3
       - INSTANCE_ID=producer-3-instance
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
     restart: unless-stopped
@@ -151,6 +154,7 @@ services:
       - INSTANCE_ID=consumer-1-instance
       - KAFKA_CONSUMER_GROUP=group-a
       - KAFKA_TOPICS=shared-events
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
       - ProducerService__BaseUrl=http://producer1
@@ -174,6 +178,7 @@ services:
       - INSTANCE_ID=consumer-2-instance
       - KAFKA_CONSUMER_GROUP=group-a
       - KAFKA_TOPICS=shared-events
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
       - ProducerService__BaseUrl=http://producer1
@@ -197,6 +202,7 @@ services:
       - INSTANCE_ID=consumer-3-instance
       - KAFKA_CONSUMER_GROUP=group-a
       - KAFKA_TOPICS=shared-events
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
       - ProducerService__BaseUrl=http://producer1
@@ -221,6 +227,7 @@ services:
       - INSTANCE_ID=consumer-4-instance
       - KAFKA_CONSUMER_GROUP=group-b
       - KAFKA_TOPICS=shared-events
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
       - ProducerService__BaseUrl=http://producer1
@@ -244,6 +251,7 @@ services:
       - INSTANCE_ID=consumer-5-instance
       - KAFKA_CONSUMER_GROUP=group-b
       - KAFKA_TOPICS=shared-events
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
       - ProducerService__BaseUrl=http://producer1
@@ -268,6 +276,7 @@ services:
       - INSTANCE_ID=consumer-6-instance
       - KAFKA_CONSUMER_GROUP=group-c
       - KAFKA_TOPICS=shared-events
+      - ASPNETCORE_HTTP_PORTS=80
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password
       - ConnectionStrings__Kafka=kafka:9094
       - ProducerService__BaseUrl=http://producer1

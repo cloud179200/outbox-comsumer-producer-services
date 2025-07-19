@@ -1,5 +1,7 @@
 # Outbox Pattern with PostgreSQL and Kafka (Docker-Based)
 
+> **📋 System Status**: [FULLY OPERATIONAL](SYSTEM-FULLY-OPERATIONAL.md) - All producers and consumers are healthy and working correctly.
+
 This project implements the Outbox Pattern using PostgreSQL for reliable message delivery between producer and consumer services with Kafka as the message broker. The entire system is containerized using Docker for easy deployment and scaling.
 
 ## Architecture

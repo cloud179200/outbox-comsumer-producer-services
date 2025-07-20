@@ -44,11 +44,22 @@ builder.Services.AddScoped<IOutboxService, OutboxPostgreSqlService>();
 builder.Services.AddScoped<IKafkaProducerService, KafkaProducerService>();
 builder.Services.AddScoped<ITopicRegistrationService, TopicRegistrationService>();
 builder.Services.AddScoped<IAgentService, AgentService>();
+builder.Services.AddSingleton<IQuartzMessageBatchingService, QuartzMessageBatchingService>();
 builder.Services.AddHttpClient();
 
 // Configure Quartz.NET
 builder.Services.AddQuartz(q =>
 {
+    // Message batching job - flushes batches every 30 seconds
+    var messageBatchingJobKey = new JobKey("MessageBatching");
+    q.AddJob<MessageBatchingJob>(opts => opts.WithIdentity(messageBatchingJobKey));
+    q.AddTrigger(opts => opts
+        .ForJob(messageBatchingJobKey)
+        .WithIdentity("MessageBatching-trigger")
+        .WithSimpleSchedule(x => x
+            .WithIntervalInSeconds(30)
+            .RepeatForever()));
+
     // Process pending messages job
     var processPendingJobKey = new JobKey("ProcessPendingMessages");
     q.AddJob<ProcessPendingMessagesJob>(opts => opts.WithIdentity(processPendingJobKey));

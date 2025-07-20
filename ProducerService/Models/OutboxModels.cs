@@ -90,6 +90,7 @@ public class MessageRequest
   public string Topic { get; set; } = string.Empty;
   public string Message { get; set; } = string.Empty;
   public string? ConsumerGroup { get; set; } // Optional - if not provided, will send to all registered consumer groups for the topic
+  public bool UseBatching { get; set; } = true; // If true, queue for batch processing; if false, process immediately
 }
 
 public class MessageResponse

@@ -47,7 +47,12 @@ public class ProcessRetryMessagesJob : IJob
         {
           try
           {
-            if (message.RetryCount < 3) // Max retry attempts
+            // Check if consumer group has infinite retry enabled (MaxRetries = -1)
+            var consumerGroupConfig = allConsumerGroups.FirstOrDefault(cg => cg.ConsumerGroupName == consumerGroup);
+            var maxRetries = consumerGroupConfig?.MaxRetries ?? 3;
+
+            // If MaxRetries is -1, enable infinite retry
+            if (maxRetries == -1 || message.RetryCount < maxRetries)
             {
               // Get active consumer services for targeting
               var activeConsumers = await agentService.GetActiveConsumerAgentsAsync();
@@ -55,17 +60,18 @@ public class ProcessRetryMessagesJob : IJob
                   .Where(c => c.AssignedConsumerGroups.Contains(consumerGroup))
                   .FirstOrDefault();
 
-              _logger.LogInformation("Retrying message {MessageId} for consumer group {ConsumerGroup} (attempt {RetryCount})",
-                  message.Id, consumerGroup, message.RetryCount + 1);
+              _logger.LogInformation("Retrying message {MessageId} for consumer group {ConsumerGroup} (attempt {RetryCount}, MaxRetries: {MaxRetries})",
+                  message.Id, consumerGroup, message.RetryCount + 1, maxRetries == -1 ? "∞" : maxRetries.ToString());
 
               // Create targeted retry message
               await outboxService.CreateRetryMessageAsync(message, targetConsumer?.ServiceId);
             }
             else
             {
-              _logger.LogWarning("Message {MessageId} exceeded max retry attempts, marking as failed", message.Id);
+              _logger.LogWarning("Message {MessageId} exceeded max retry attempts ({MaxRetries}), marking as failed",
+                  message.Id, maxRetries);
               await outboxService.UpdateMessageStatusAsync(message.Id, OutboxMessageStatus.Failed,
-                  "Maximum retry attempts exceeded");
+                  $"Maximum retry attempts exceeded ({maxRetries})");
             }
           }
           catch (Exception ex)

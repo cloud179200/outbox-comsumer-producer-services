@@ -9,11 +9,13 @@ namespace ProducerService.Controllers;
 public class MessagesController : ControllerBase
 {
   private readonly IOutboxService _outboxService;
+  private readonly IQuartzMessageBatchingService _quartzBatchingService;
   private readonly ILogger<MessagesController> _logger;
 
-  public MessagesController(IOutboxService outboxService, ILogger<MessagesController> logger)
+  public MessagesController(IOutboxService outboxService, IQuartzMessageBatchingService quartzBatchingService, ILogger<MessagesController> logger)
   {
     _outboxService = outboxService;
+    _quartzBatchingService = quartzBatchingService;
     _logger = logger;
   }
 
@@ -38,34 +40,37 @@ public class MessagesController : ControllerBase
         return BadRequest("Topic and Message are required");
       }
 
-      var messages = await _outboxService.CreateMessagesForTopicAsync(
-          request.Topic,
-          request.Message,
-          request.ConsumerGroup);
-
-      if (!messages.Any())
+      if (request.UseBatching)
       {
-        return BadRequest($"No registered consumer groups found for topic '{request.Topic}'. " +
-            "Please register the topic and consumer groups first using /api/topics/register endpoint.");
-      }
+        // Queue the message for batch processing
+        var messageId = await _quartzBatchingService.QueueMessageAsync(request);
 
-      _logger.LogInformation("Created {Count} outbox messages for topic {Topic}",
-          messages.Count, request.Topic); return Ok(new MessageResponse
-          {
-            MessageId = messages.First().Id,
-            Status = "Queued",
-            Topic = request.Topic,
-            TargetConsumerGroups = messages.Select(m => m.ConsumerGroup).ToList(),
-            ProducerServiceId = messages.First().ProducerServiceId,
-            ProducerInstanceId = messages.First().ProducerInstanceId
-          });
+        _logger.LogDebug("Message {MessageId} queued for batch processing on topic {Topic}", messageId, request.Topic);
+
+        // Return immediately with queued status
+        return Ok(new MessageResponse
+        {
+          MessageId = messageId,
+          Status = "Queued for batch processing",
+          Topic = request.Topic,
+          Timestamp = DateTime.UtcNow
+        });
+      }
+      else
+      {
+        // Process immediately
+        return await ProcessImmediateMessage(request);
+      }
     }
     catch (Exception ex)
     {
-      _logger.LogError(ex, "Error sending message to topic {Topic}", request.Topic);
+      _logger.LogError(ex, "Error processing message for topic {Topic}", request.Topic);
       return StatusCode(500, "Internal server error");
     }
   }
+
+
+
   [HttpPost("acknowledge")]
   public async Task<ActionResult> AcknowledgeMessage([FromBody] AcknowledgmentRequest request)
   {
@@ -103,53 +108,35 @@ public class MessagesController : ControllerBase
     }
   }
 
-  [HttpGet("{messageId}/status")]
-  public async Task<ActionResult<OutboxMessage>> GetMessageStatus(string messageId)
+  private async Task<ActionResult<MessageResponse>> ProcessImmediateMessage(MessageRequest request)
   {
     try
     {
-      var message = await _outboxService.GetMessageAsync(messageId);
-      if (message == null)
+      var messages = await _outboxService.CreateMessagesForTopicAsync(request.Topic, request.Message, request.ConsumerGroup);
+
+      if (messages == null || !messages.Any())
       {
-        return NotFound($"Message {messageId} not found");
+        return BadRequest($"No registered consumer groups found for topic '{request.Topic}'. " +
+            "Please register the topic and consumer groups first using /api/topics/register endpoint.");
       }
 
-      return Ok(message);
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Error getting status for message {MessageId}", messageId);
-      return StatusCode(500, "Internal server error");
-    }
-  }
+      _logger.LogInformation("Created {Count} outbox messages for topic {Topic}",
+          messages.Count, request.Topic);
 
-  [HttpGet("pending")]
-  public async Task<ActionResult<List<OutboxMessage>>> GetPendingMessages([FromQuery] int limit = 100)
-  {
-    try
-    {
-      var messages = await _outboxService.GetPendingMessagesAsync(limit);
-      return Ok(messages);
+      return Ok(new MessageResponse
+      {
+        MessageId = messages.First().Id,
+        Status = "Queued",
+        Topic = request.Topic,
+        TargetConsumerGroups = messages.Select(m => m.ConsumerGroup).ToList(),
+        ProducerServiceId = messages.First().ProducerServiceId,
+        ProducerInstanceId = messages.First().ProducerInstanceId
+      });
     }
     catch (Exception ex)
     {
-      _logger.LogError(ex, "Error getting pending messages");
-      return StatusCode(500, "Internal server error");
-    }
-  }
-
-  [HttpGet("consumer-group/{consumerGroup}")]
-  public async Task<ActionResult<List<OutboxMessage>>> GetMessagesForConsumerGroup(string consumerGroup, [FromQuery] int limit = 100)
-  {
-    try
-    {
-      var messages = await _outboxService.GetMessagesForConsumerGroupAsync(consumerGroup, limit);
-      return Ok(messages);
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Error getting messages for consumer group {ConsumerGroup}", consumerGroup);
-      return StatusCode(500, "Internal server error");
+      _logger.LogError(ex, "Error processing immediate message for topic {Topic}", request.Topic);
+      throw;
     }
   }
 }

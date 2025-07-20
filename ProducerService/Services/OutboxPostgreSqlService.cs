@@ -14,6 +14,7 @@ public interface IOutboxService
   Task<bool> DeleteMessageAsync(string messageId);
   Task<List<OutboxMessage>> GetMessagesForConsumerGroupAsync(string consumerGroup, int limit = 100);
   Task<List<OutboxMessage>> CreateMessagesForTopicAsync(string topicName, string message, string? specificConsumerGroup = null);
+  Task<List<OutboxMessage>> CreateMessagesBulkAsync(List<MessageRequest> requests);
   Task<int> CleanupOldMessagesAsync(int retentionDays);
   Task<OutboxMessage?> CreateRetryMessageAsync(OutboxMessage originalMessage, string? targetConsumerServiceId = null);
 }
@@ -94,6 +95,81 @@ public class OutboxPostgreSqlService : IOutboxService
     catch (Exception ex)
     {
       _logger.LogError(ex, "Error creating messages for topic {TopicName}", topicName);
+      return new List<OutboxMessage>();
+    }
+  }
+
+  public async Task<List<OutboxMessage>> CreateMessagesBulkAsync(List<MessageRequest> requests)
+  {
+    try
+    {
+      var allMessages = new List<OutboxMessage>();
+      var requestsToProcess = new List<(MessageRequest request, TopicRegistration topic, List<ConsumerGroupRegistration> groups)>();
+
+      // First, validate and collect all topic registrations and consumer groups
+      foreach (var request in requests)
+      {
+        var topicRegistration = await _dbContext.TopicRegistrations
+          .Include(t => t.ConsumerGroups.Where(cg => cg.IsActive))
+          .FirstOrDefaultAsync(t => t.TopicName == request.Topic && t.IsActive);
+
+        if (topicRegistration == null)
+        {
+          _logger.LogWarning("Topic registration not found for topic: {TopicName}", request.Topic);
+          continue;
+        }
+
+        var targetConsumerGroups = request.ConsumerGroup != null
+          ? topicRegistration.ConsumerGroups.Where(cg => cg.ConsumerGroupName == request.ConsumerGroup).ToList()
+          : topicRegistration.ConsumerGroups.ToList();
+
+        if (!targetConsumerGroups.Any())
+        {
+          _logger.LogWarning("No active consumer groups found for topic: {TopicName}, specificGroup: {SpecificGroup}",
+            request.Topic, request.ConsumerGroup);
+          continue;
+        }
+
+        requestsToProcess.Add((request, topicRegistration, targetConsumerGroups));
+      }
+
+      // Create all outbox messages in memory first
+      foreach (var (request, topicRegistration, consumerGroups) in requestsToProcess)
+      {
+        foreach (var consumerGroup in consumerGroups)
+        {
+          var outboxMessage = new OutboxMessage
+          {
+            Id = Guid.NewGuid().ToString(),
+            Topic = request.Topic,
+            Message = request.Message,
+            ConsumerGroup = consumerGroup.ConsumerGroupName,
+            TopicRegistrationId = topicRegistration.Id,
+            Status = OutboxMessageStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            ProducerServiceId = _currentServiceId,
+            ProducerInstanceId = _currentInstanceId
+          };
+
+          allMessages.Add(outboxMessage);
+        }
+      }
+
+      // Bulk insert all messages in a single transaction
+      if (allMessages.Any())
+      {
+        _dbContext.OutboxMessages.AddRange(allMessages);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("Bulk created {Count} outbox messages from {RequestCount} requests",
+          allMessages.Count, requests.Count);
+      }
+
+      return allMessages;
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error bulk creating messages for {RequestCount} requests", requests.Count);
       return new List<OutboxMessage>();
     }
   }

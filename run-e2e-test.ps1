@@ -16,9 +16,10 @@ Write-Host "`nTest Options:" -ForegroundColor Yellow
 Write-Host "1. Quick Test (5 messages, with batching)" -ForegroundColor White
 Write-Host "2. Standard Test (10 messages, with batching)" -ForegroundColor White
 Write-Host "3. Non-Batching Test (5 messages, immediate processing)" -ForegroundColor White
-Write-Host "4. Custom Test (specify parameters)" -ForegroundColor White
+Write-Host "4. Session-Specific Test (10 messages, counts only current session)" -ForegroundColor White
+Write-Host "5. Custom Test (specify parameters)" -ForegroundColor White
 
-$choice = Read-Host "`nSelect test type (1-4)"
+$choice = Read-Host "`nSelect test type (1-5)"
 
 switch ($choice) {
   '1' {
@@ -34,6 +35,10 @@ switch ($choice) {
     & "$PSScriptRoot\e2e-comprehensive-test.ps1" -MessageCount 5 -UseBatching $false -VerificationTimeoutSeconds 120
   }
   '4' {
+    Write-Host "`nRunning Session-Specific Test..." -ForegroundColor Green
+    & "$PSScriptRoot\e2e-session-specific-test.ps1" -MessageCount 10 -UseBatching $true -VerificationTimeoutSeconds 180
+  }
+  '5' {
     Write-Host "`nCustom Test Configuration:" -ForegroundColor Green
     $messageCount = Read-Host "Number of messages (default: 10)"
     if (-not $messageCount) { $messageCount = 10 }
@@ -48,8 +53,8 @@ switch ($choice) {
     & "$PSScriptRoot\e2e-comprehensive-test.ps1" -MessageCount $messageCount -UseBatching $batchingFlag -VerificationTimeoutSeconds $timeout
   }
   default {
-    Write-Host "Invalid selection. Running default test..." -ForegroundColor Yellow
-    & "$PSScriptRoot\e2e-comprehensive-test.ps1" -MessageCount 10 -UseBatching $true -VerificationTimeoutSeconds 180
+    Write-Host "Invalid selection. Running session-specific test..." -ForegroundColor Yellow
+    & "$PSScriptRoot\e2e-session-specific-test.ps1" -MessageCount 10 -UseBatching $true -VerificationTimeoutSeconds 180
   }
 }
 

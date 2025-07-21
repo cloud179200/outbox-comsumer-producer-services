@@ -36,9 +36,9 @@ public class ConsumerJob : IJob
       var kafkaConsumerService = scope.ServiceProvider.GetRequiredService<IKafkaConsumerService>();
 
       // Create a cancellation token that will be cancelled when the job should stop
-      using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)); // Poll for 30 seconds max per job execution
+      using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10)); // Poll for 10 minutes max per job execution to allow proper message consumption
 
-      await kafkaConsumerService.ConsumeMessagesAsync(topics, consumerGroup, cts.Token);
+      await kafkaConsumerService.StartConsumingAsync(topics, consumerGroup, cts.Token);
     }
     catch (OperationCanceledException)
     {

@@ -58,7 +58,8 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("MessageBatching-trigger")
         .WithSimpleSchedule(x => x
             .WithIntervalInSeconds(30)
-            .RepeatForever()));
+            .RepeatForever())
+        .StartNow());
 
     // Process pending messages job
     var processPendingJobKey = new JobKey("ProcessPendingMessages");

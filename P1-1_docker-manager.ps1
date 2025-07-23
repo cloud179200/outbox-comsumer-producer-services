@@ -1,34 +1,36 @@
 # Docker Scaled System Management Script
-Write-Host "🐳 Docker Scaled Outbox System Management" -ForegroundColor Green
+Write-Host "Docker Scaled Outbox System Management" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green
 
 function Show-Status {
-    Write-Host "`n📊 Current System Status:" -ForegroundColor Cyan
+    Write-Host "`nCurrent System Status:" -ForegroundColor Cyan
     
     # Check if Docker is running
     try {
         docker version | Out-Null
-        Write-Host "✅ Docker is running" -ForegroundColor Green
-    } catch {
-        Write-Host "❌ Docker is not running or not accessible" -ForegroundColor Red
+        Write-Host "Docker is running" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Docker is not running or not accessible" -ForegroundColor Red
         return
     }
     
     # Check running containers
-    Write-Host "`n🏃 Running Containers:" -ForegroundColor Cyan
+    Write-Host "`nRunning Containers:" -ForegroundColor Cyan
     $containers = docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     if ($containers) {
         $containers | ForEach-Object { Write-Host "  $_" -ForegroundColor White }
-    } else {
+    }
+    else {
         Write-Host "  No containers running" -ForegroundColor Yellow
     }
 }
 
 function Start-InfrastructureOnly {
-    Write-Host "`n🚀 Starting Infrastructure Only (PostgreSQL, Kafka, Zookeeper)..." -ForegroundColor Cyan
+    Write-Host "`nStarting Infrastructure Only (PostgreSQL, Kafka, Zookeeper)..." -ForegroundColor Cyan
     docker-compose up -d postgres zookeeper kafka kafka-ui pgadmin
     
-    Write-Host "`n⏳ Waiting for infrastructure to be ready..." -ForegroundColor Yellow
+    Write-Host "`nWaiting for infrastructure to be ready..." -ForegroundColor Yellow
     Start-Sleep -Seconds 30
     
     Show-Status
@@ -73,7 +75,8 @@ function Test-Services {
         try {
             $response = Invoke-RestMethod -Uri "http://localhost:$port/api/messages/health" -Method GET -TimeoutSec 10
             Write-Host "  ✅ Producer $i (port $port) is healthy" -ForegroundColor Green
-        } catch {
+        }
+        catch {
             Write-Host "  ❌ Producer $i (port $port) is not responding" -ForegroundColor Red
         }
     }
@@ -83,21 +86,22 @@ function Test-Services {
     for ($i = 1; $i -le 6; $i++) {
         $port = 5400 + $i
         $group = switch ($i) {
-            {$_ -in 1..3} { "Group A" }
-            {$_ -in 4..5} { "Group B" }
+            { $_ -in 1..3 } { "Group A" }
+            { $_ -in 4..5 } { "Group B" }
             6 { "Group C" }
         }
         try {
             $response = Invoke-RestMethod -Uri "http://localhost:$port/api/consumer/health" -Method GET -TimeoutSec 10
             Write-Host "  ✅ Consumer $i (port $port, $group) is healthy" -ForegroundColor Green
-        } catch {
+        }
+        catch {
             Write-Host "  ❌ Consumer $i (port $port, $group) is not responding" -ForegroundColor Red
         }
     }
 }
 
 function Send-TestMessages {
-    Write-Host "`n📨 Sending Test Messages..." -ForegroundColor Cyan
+    Write-Host "`nSending Test Messages..." -ForegroundColor Cyan
     
     for ($i = 1; $i -le 3; $i++) {
         $port = 5300 + $i
@@ -105,14 +109,15 @@ function Send-TestMessages {
         
         try {
             $body = @{
-                topic = "shared-events"
+                topic   = "shared-events"
                 message = $message
             } | ConvertTo-Json
             
             $response = Invoke-RestMethod -Uri "http://localhost:$port/api/messages/send" -Method POST -Body $body -ContentType "application/json" -TimeoutSec 15
-            Write-Host "  ✅ Message sent via Producer $i" -ForegroundColor Green
-        } catch {
-            Write-Host "  ❌ Failed to send message via Producer $i - $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "  Message sent via Producer $i" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "  Failed to send message via Producer $i - $($_.Exception.Message)" -ForegroundColor Red
         }
         Start-Sleep -Seconds 1
     }
@@ -124,7 +129,8 @@ function Show-Logs {
     if ($ServiceName) {
         Write-Host "`n📋 Showing logs for $ServiceName..." -ForegroundColor Cyan
         docker-compose logs -f $ServiceName
-    } else {
+    }
+    else {
         Write-Host "`n📋 Showing logs for all services..." -ForegroundColor Cyan
         docker-compose logs -f
     }
@@ -165,7 +171,7 @@ while ($true) {
         }
         "9" { Stop-AllServices }
         "0" { 
-            Write-Host "`n👋 Goodbye!" -ForegroundColor Green
+            Write-Host "`nGoodbye!" -ForegroundColor Green
             break 
         }
         default { Write-Host "`n❌ Invalid choice. Please try again." -ForegroundColor Red }

@@ -308,7 +308,7 @@ curl "http://localhost:5301/api/messages/consumer-group/group-a"
 **Verification Script:**
 ```powershell
 # Run comprehensive acknowledgment verification
-.\verify-acknowledgments.ps1
+.\P2-3_verify-acknowledgments.ps1
 ```
 
 ### 5. Scaling Operations
@@ -316,7 +316,7 @@ curl "http://localhost:5301/api/messages/consumer-group/group-a"
 **Horizontal Scaling with Docker:**
 ```bash
 # Scale producers and consumers
-docker-compose up -d --scale outbox-producer=3 --scale outbox-consumer=6
+docker-compose up -d --scale producer1=3 --scale consumer1=6
 
 # Check service registration
 curl "http://localhost:5301/api/agents/producers"
@@ -400,7 +400,7 @@ curl "http://localhost:5301/api/agents/consumers"
 Start the entire system with scaled instances:
 
 ```powershell
-.\docker-manager.ps1 -Action Start
+.\P1-1_docker-manager.ps1
 ```
 
 This will start:
@@ -416,7 +416,7 @@ This will start:
 For development or testing with local services:
 
 ```powershell
-.\docker-simple.ps1 -Action Start
+.\P1-2_docker-simple.ps1
 ```
 
 This starts only the infrastructure (PostgreSQL, Kafka, Zookeeper, Kafka-UI).
@@ -433,24 +433,31 @@ This will test all running services and show their health status.
 ### 4. Stop the System
 
 ```powershell
-.\docker-manager.ps1 -Action Stop
+.\P1-1_docker-manager.ps1
+# Then select option 9 to stop all services
 ```
 
 ## Docker Management Scripts
 
-### docker-manager.ps1
+### P1-1_docker-manager.ps1
+
 Primary management script for the scaled Docker system:
+
 - Start/Stop complete system with multiple instances
 - Health monitoring and logging
 - Scaling configuration
 
-### docker-simple.ps1  
+### P1-2_docker-simple.ps1
+
 Simple infrastructure management:
+
 - Start/Stop infrastructure only (PostgreSQL, Kafka, Zookeeper, Kafka-UI)
 - Useful for development with local services
 
-### docker-test.ps1
+### P2-8_cleanup.ps1
+
 System testing and validation:
+
 - Health checks for all services
 - Database connectivity tests
 - Kafka topic verification
@@ -505,7 +512,7 @@ The system supports horizontal scaling through Docker:
 
 ```powershell
 # Scale to 5 producers and 10 consumers
-docker-compose up -d --scale outbox-producer=5 --scale outbox-consumer=10
+docker-compose up -d --scale producer1=5 --scale consumer1=10
 ```
 
 Consumer instances automatically register with different consumer groups to ensure load distribution.
@@ -528,8 +535,8 @@ Consumer instances automatically register with different consumer groups to ensu
 docker-compose logs -f
 
 # View specific service logs
-docker-compose logs -f outbox-producer
-docker-compose logs -f outbox-consumer
+docker-compose logs -f outbox-producer1
+docker-compose logs -f outbox-consumer1
 ```
 
 ## Development
@@ -543,8 +550,8 @@ Images are built automatically by docker-compose, but you can build manually:
 docker-compose build
 
 # Build specific service
-docker-compose build outbox-producer
-docker-compose build outbox-consumer
+docker-compose build producer1
+docker-compose build consumer1
 ```
 
 ### Local Development
@@ -553,7 +560,9 @@ For local development, you can run infrastructure only and develop services loca
 
 ```powershell
 # Start infrastructure
-.\docker-simple.ps1 -Action Start
+```powershell
+.\P1-2_docker-simple.ps1 -Action Start
+```
 
 # Run services locally with dotnet run
 cd ProducerService
@@ -582,8 +591,8 @@ dotnet run --urls "http://localhost:5287"
 1. **Services Not Starting**
    ```bash
    # Check container logs
-   docker logs outbox-producer-1
-   docker logs outbox-consumer-1
+   docker logs outbox-producer1
+   docker logs outbox-consumer1
    
    # Check database connectivity
    docker logs outbox-postgres
@@ -604,7 +613,7 @@ dotnet run --urls "http://localhost:5287"
    curl http://localhost:5301/api/topics/consumer-groups
    
    # Verify acknowledgments
-   ./verify-acknowledgments.ps1
+   .\P2-3_verify-acknowledgments.ps1
    ```
 
 ### Log Analysis
@@ -628,9 +637,10 @@ dotnet run --urls "http://localhost:5287"
 The system includes comprehensive monitoring scripts to verify message processing across all consumer groups:
 
 #### 1. Acknowledgment Verification Script
+
 ```powershell
 # Run the comprehensive verification
-.\verify-acknowledgments.ps1
+.\P2-3_verify-acknowledgments.ps1
 
 # This script checks:
 # - Message processing status for each consumer group (group-a, group-b, group-c)
@@ -640,15 +650,17 @@ The system includes comprehensive monitoring scripts to verify message processin
 ```
 
 #### 2. End-to-End Testing
+
 ```powershell
 # Comprehensive E2E test with infinite retry
-.\e2e-comprehensive-test.ps1 -MessageCount 10 -UseBatching $true
+.\P2-1_e2e-comprehensive-test.ps1 -MessageCount 10 -UseBatching $true
 
 # Session-specific testing (isolates test messages)
-.\e2e-session-specific-test.ps1 -MessageCount 5 -UseBatching $true
+.\P2-2_run-e2e-test.ps1
 ```
 
 #### 3. SQL Verification Queries
+
 ```sql
 -- Check latest acknowledgments
 SELECT "MessageId", "ConsumerGroupRegistrationId", "Success", "AcknowledgedAt", "ErrorMessage"

@@ -88,11 +88,11 @@
   - Parallel processing across all 3 producers
 
 ### 🔧 Supporting Scripts (Kept)
-- **`verify-acknowledgments.ps1`** - Message processing verification
-- **`monitor-consumers.ps1`** - Real-time consumer monitoring
-- **`docker-manager.ps1`** - Docker container management
+- **`P2-3_verify-acknowledgments.ps1`** - Message processing verification
+- **`P2-4_monitor-consumers.ps1`** - Real-time consumer monitoring
+- **`P1-1_docker-manager.ps1`** - Docker container management
 - **`start-demo.ps1`** - System startup script
-- **`cleanup.ps1`** - System cleanup utilities
+- **`P2-8_cleanup.ps1`** - System cleanup utilities
 
 ### 🗑️ Removed Scripts (Cleanup Completed)
 - Removed debugging and temporary test scripts
@@ -111,10 +111,10 @@
 ### Monitoring During Test:
 ```powershell
 # Check current load test progress (running in background)
-.\verify-acknowledgments.ps1
+.\P2-3_verify-acknowledgments.ps1
 
 # Monitor consumer processing in real-time
-.\monitor-consumers.ps1
+.\P2-4_monitor-consumers.ps1
 
 # View Kafka messages
 # http://localhost:8080

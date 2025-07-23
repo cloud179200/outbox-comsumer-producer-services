@@ -30,17 +30,20 @@ The Outbox Pattern system has been successfully migrated to a fully Docker-based
 
 ### Start System
 ```powershell
-.\docker-manager.ps1 -Action Start
+.\P1-1_docker-manager.ps1
+# Then select option 4 to start all services
 ```
 
 ### Stop System
 ```powershell
-.\docker-manager.ps1 -Action Stop
+.\P1-1_docker-manager.ps1
+# Then select option 9 to stop all services
 ```
 
 ### Start Infrastructure Only
 ```powershell
-.\docker-simple.ps1 -Action Start
+.\P1-2_docker-simple.ps1
+# Then select option 2 to start infrastructure only
 ```
 
 ### Test System Health
@@ -50,7 +53,7 @@ The Outbox Pattern system has been successfully migrated to a fully Docker-based
 
 ### Clean Up Everything
 ```powershell
-.\cleanup.ps1
+.\P2-8_cleanup.ps1
 ```
 
 ## 📁 Current File Structure
@@ -60,10 +63,10 @@ outbox-comsumer-producer-services/
 ├── ConsumerService/           # Consumer service source code
 ├── ProducerService/           # Producer service source code
 ├── docker-compose.yml         # Docker services definition
-├── docker-manager.ps1         # Primary management script
-├── docker-simple.ps1          # Infrastructure-only management
+├── P1-1_docker-manager.ps1         # Primary management script
+├── P1-2_docker-simple.ps1          # Infrastructure-only management
 ├── docker-test.ps1            # System health testing
-├── cleanup.ps1                # Cleanup script
+├── P2-8_cleanup.ps1                # Cleanup script
 ├── README.md                  # Main documentation
 ├── DOCKER-SCALED-SYSTEM-SUCCESS.md  # Docker implementation details
 ├── MIGRATION-CLEANUP-SUMMARY.md     # Migration cleanup summary

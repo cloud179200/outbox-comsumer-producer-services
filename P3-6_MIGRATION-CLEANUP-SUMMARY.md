@@ -30,8 +30,8 @@ The following files were removed as they represented the old manual scaling appr
 - ✅ `ConsumerService/Dockerfile` - Consumer service container
 
 ### Management Scripts
-- ✅ `docker-manager.ps1` - Primary management script for scaled system
-- ✅ `docker-simple.ps1` - Infrastructure-only management
+- ✅ `P1-1_docker-manager.ps1` - Primary management script for scaled system
+- ✅ `P1-2_docker-simple.ps1` - Infrastructure-only management
 - ✅ `docker-test.ps1` - System health testing and validation
 
 ### Documentation
@@ -40,7 +40,7 @@ The following files were removed as they represented the old manual scaling appr
 - ✅ `MIGRATION-CLEANUP-SUMMARY.md` - This cleanup summary
 
 ### Support Files
-- ✅ `cleanup.ps1` - Cleanup script (Docker-compatible)
+- ✅ `P2-8_cleanup.ps1` - Cleanup script (Docker-compatible)
 - ✅ `.vscode/tasks.json` - Updated VS Code tasks for Docker
 
 ## Verification
@@ -66,8 +66,8 @@ The following files were removed as they represented the old manual scaling appr
 
 The system is now fully migrated to Docker-based management. Users should:
 
-1. Use `docker-manager.ps1` for system management
-2. Use `docker-simple.ps1` for infrastructure-only setup
+1. Use `P1-1_docker-manager.ps1` for system management
+2. Use `P1-2_docker-simple.ps1` for infrastructure-only setup
 3. Use `docker-test.ps1` for health verification
 4. Refer to `README.md` for comprehensive documentation
 

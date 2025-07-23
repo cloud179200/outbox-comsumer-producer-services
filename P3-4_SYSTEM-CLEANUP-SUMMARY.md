@@ -60,10 +60,10 @@ The `MessagesController` now has only essential endpoints:
 ### Monitor System
 ```powershell
 # Monitor consumers during test
-.\monitor-consumers.ps1
+.\P2-4_monitor-consumers.ps1
 
 # Verify message acknowledgments
-.\verify-acknowledgments.ps1
+.\P2-3_verify-acknowledgments.ps1
 
 # Check Kafka UI
 # http://localhost:8080

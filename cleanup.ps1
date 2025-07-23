@@ -20,7 +20,7 @@ if ($removeImages -eq 'y' -or $removeImages -eq 'Y') {
   Write-Host "🗑️  Removing Docker images..." -ForegroundColor Cyan
     
   $images = @(
-    "postgres:15-alpine",
+    "postgres:16-alpine",
     "confluentinc/cp-zookeeper:7.4.0", 
     "confluentinc/cp-kafka:7.4.0"
   )

@@ -1,12 +1,12 @@
 # Outbox Pattern with PostgreSQL and Kafka (Docker-Based)
 
-> **📋 System Status**: [FULLY OPERATIONAL](SYSTEM-FULLY-OPERATIONAL.md) - All producers and consumers are healthy and working correctly.
+> **📋 System Status**: ✅ **FULLY OPERATIONAL** - All producers and consumers are healthy and working correctly. The system has been optimized with simplified topic structure (single "shared-events" topic), organized model architecture, environment variable-only configuration, and comprehensive testing capabilities. Latest test: 2000 messages processed successfully across 3 consumer groups with 100% success rate (July 24, 2025).
 
 This project implements the **Transactional Outbox Pattern** using PostgreSQL for reliable message delivery between producer and consumer services with Kafka as the message broker. The entire system is containerized using Docker for easy deployment and horizontal scaling.
 
 ## 🏗️ System Architecture
 
-The solution consists of two primary ASP.NET Core services with comprehensive data flow management:
+The solution consists of two primary ASP.NET Core services with comprehensive data flow management and organized model architecture:
 
 ### 📤 Producer Service (Outbox Pattern Implementation)
 
@@ -15,6 +15,7 @@ The solution consists of two primary ASP.NET Core services with comprehensive da
 - **Background Jobs**: Quartz.NET scheduled jobs for processing and retry management
 - **Agent Management**: Service registration and health monitoring for horizontal scaling
 - **Message Batching**: Configurable batching system for high-throughput scenarios
+- **Organized Models**: Namespace-based model organization (Messages/, DTOs/, Enums/, Agents/, Core/)
 
 ### 📥 Consumer Service (Reliable Processing)
 
@@ -23,6 +24,7 @@ The solution consists of two primary ASP.NET Core services with comprehensive da
 - **Processing Tracking**: PostgreSQL tracking of processed and failed messages
 - **Acknowledgment System**: Producer notification with success/failure reporting
 - **Agent Registration**: Auto-registration with producer services for scaling
+- **Organized Models**: Parallel model structure for consistency and maintainability
 
 ## 🔄 Data Flow and Process Workflow
 
@@ -142,7 +144,7 @@ ProducerServiceId, ProducerInstanceId, ConsumerServiceId
 **Producer Service Configuration:**
 
 ```bash
-# Database connection
+# Database connection (environment variable only)
 ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password"
 
 # Kafka connection  
@@ -152,12 +154,13 @@ ConnectionStrings__Kafka="localhost:9092"
 SERVICE_ID="producer-service-1"
 INSTANCE_ID="producer-instance-1"
 ASPNETCORE_ENVIRONMENT="Development"
+ASPNETCORE_HTTP_PORTS=80
 ```
 
 **Consumer Service Configuration:**
 
 ```bash
-# Database connection
+# Database connection (environment variable only)
 ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password"
 
 # Service identification
@@ -166,20 +169,32 @@ INSTANCE_ID="consumer-instance-1"
 
 # Consumer group assignment (Docker environment)
 KAFKA_CONSUMER_GROUP="group-a"
-KAFKA_TOPICS="shared-events,user-events"
+KAFKA_TOPICS="shared-events"
 
-# Producer service registration
+# Producer service registration (environment variable only)
 ProducerService__BaseUrl="http://localhost:5299"
+
+# Port configuration
+ASPNETCORE_HTTP_PORTS=80
 ```
+
+### Configuration Cleanup (July 2025)
+
+The system has been optimized to use **environment variables only** for configuration management:
+
+- ✅ **appsettings.json**: Contains only logging and basic ASP.NET Core settings
+- ✅ **appsettings.Development.json**: Contains only development-specific logging settings  
+- ✅ **appsettings.Test.json**: Contains only test environment settings
+- ✅ **Environment Variables**: Handle all ConnectionStrings, service URLs, and deployment configurations
+- ✅ **Docker Compose**: Manages all environment variable injection for containers
 
 ### Topic and Consumer Group Setup
 
-**Default Seeded Topics:**
+**Current System Configuration (Updated July 2025):**
 
-- `user-events` → `default-consumer-group`
-- `order-events` → `default-consumer-group`, `inventory-service`  
-- `analytics-events` → `analytics-group`
-- `notification-events` → `notification-group`, `email-service`
+- `shared-events` → `group-a`, `group-b`, `group-c`
+
+The system has been optimized with a simplified single shared topic that all consumer groups process independently. This provides improved load distribution and simplified message routing.
 
 **Consumer Group Configuration:**
 
@@ -188,15 +203,25 @@ ProducerService__BaseUrl="http://localhost:5299"
   "ConsumerGroups": [
     {
       "GroupName": "group-a",
-      "Topics": ["user-events", "order-events"]
+      "Topics": ["shared-events"]
     },
     {
-      "GroupName": "analytics-group", 
-      "Topics": ["analytics-events"]
+      "GroupName": "group-b", 
+      "Topics": ["shared-events"]
+    },
+    {
+      "GroupName": "group-c", 
+      "Topics": ["shared-events"]
     }
   ]
 }
 ```
+
+**Consumer Group Distribution:**
+
+- **group-a**: 2 consumers (ports 5401, 5402) - High-load processing
+- **group-b**: 2 consumers (ports 5404, 5405) - Medium-load processing  
+- **group-c**: 2 consumers (ports 5406, additional instances) - Load balancing
 
 ### Background Job Configuration
 

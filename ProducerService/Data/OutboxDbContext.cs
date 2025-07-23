@@ -162,112 +162,54 @@ public class OutboxDbContext : DbContext
 
   private void SeedData(ModelBuilder modelBuilder)
   {
-    // Seed default topic registrations
+    // Seed single shared topic registration
     modelBuilder.Entity<TopicRegistration>().HasData(
         new TopicRegistration
         {
           Id = 1,
-          TopicName = "user-events",
-          Description = "User management events",
-          IsActive = true,
-          CreatedAt = DateTime.UtcNow
-        },
-        new TopicRegistration
-        {
-          Id = 2,
-          TopicName = "order-events",
-          Description = "Order processing events",
-          IsActive = true,
-          CreatedAt = DateTime.UtcNow
-        },
-        new TopicRegistration
-        {
-          Id = 3,
-          TopicName = "analytics-events",
-          Description = "Analytics and tracking events",
-          IsActive = true,
-          CreatedAt = DateTime.UtcNow
-        },
-        new TopicRegistration
-        {
-          Id = 4,
-          TopicName = "notification-events",
-          Description = "Notification events",
+          TopicName = "shared-events",
+          Description = "Shared events topic for all message types in the outbox pattern demonstration",
           IsActive = true,
           CreatedAt = DateTime.UtcNow
         }
     );
 
-    // Seed default consumer group registrations
+    // Seed the 3 consumer groups for the shared-events topic
     modelBuilder.Entity<ConsumerGroupRegistration>().HasData(
-        // User events consumer groups
+        // Group A - High load processing (3 consumers: 5401, 5402, 5403)
         new ConsumerGroupRegistration
         {
           Id = 1,
-          ConsumerGroupName = "default-consumer-group",
+          ConsumerGroupName = "group-a",
           TopicRegistrationId = 1,
           RequiresAcknowledgment = true,
           IsActive = true,
           AcknowledgmentTimeoutMinutes = 30,
-          MaxRetries = 3,
+          MaxRetries = -1, // Infinite retry for demonstration
           CreatedAt = DateTime.UtcNow
         },
-        // Order events consumer groups
+        // Group B - Medium load processing (2 consumers: 5404, 5405)
         new ConsumerGroupRegistration
         {
           Id = 2,
-          ConsumerGroupName = "default-consumer-group",
-          TopicRegistrationId = 2,
+          ConsumerGroupName = "group-b",
+          TopicRegistrationId = 1,
           RequiresAcknowledgment = true,
           IsActive = true,
           AcknowledgmentTimeoutMinutes = 30,
-          MaxRetries = 3,
+          MaxRetries = -1, // Infinite retry for demonstration
           CreatedAt = DateTime.UtcNow
         },
+        // Group C - Light load processing (1 consumer: 5406)
         new ConsumerGroupRegistration
         {
           Id = 3,
-          ConsumerGroupName = "inventory-service",
-          TopicRegistrationId = 2,
+          ConsumerGroupName = "group-c",
+          TopicRegistrationId = 1,
           RequiresAcknowledgment = true,
           IsActive = true,
-          AcknowledgmentTimeoutMinutes = 15,
-          MaxRetries = 5,
-          CreatedAt = DateTime.UtcNow
-        },
-        // Analytics events consumer groups
-        new ConsumerGroupRegistration
-        {
-          Id = 4,
-          ConsumerGroupName = "analytics-group",
-          TopicRegistrationId = 3,
-          RequiresAcknowledgment = true,
-          IsActive = true,
-          AcknowledgmentTimeoutMinutes = 60,
-          MaxRetries = 2,
-          CreatedAt = DateTime.UtcNow
-        },
-        // Notification events consumer groups
-        new ConsumerGroupRegistration
-        {
-          Id = 5,
-          ConsumerGroupName = "notification-group",
-          TopicRegistrationId = 4,
-          RequiresAcknowledgment = true,
-          IsActive = true,
-          AcknowledgmentTimeoutMinutes = 10,
-          MaxRetries = 3,
-          CreatedAt = DateTime.UtcNow
-        },
-        new ConsumerGroupRegistration
-        {
-          Id = 6,
-          ConsumerGroupName = "email-service",
-          TopicRegistrationId = 4,
-          RequiresAcknowledgment = true,
-          IsActive = true,
-          AcknowledgmentTimeoutMinutes = 5,
-          MaxRetries = 2,
+          AcknowledgmentTimeoutMinutes = 30,
+          MaxRetries = -1, // Infinite retry for demonstration
           CreatedAt = DateTime.UtcNow
         }
     );

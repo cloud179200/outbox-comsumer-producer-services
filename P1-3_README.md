@@ -9,6 +9,7 @@ This project implements the **Transactional Outbox Pattern** using PostgreSQL fo
 The solution consists of two primary ASP.NET Core services with comprehensive data flow management:
 
 ### 📤 Producer Service (Outbox Pattern Implementation)
+
 - **Message API**: REST endpoints for message publishing with batching support
 - **Outbox Storage**: PostgreSQL-based outbox table with message state tracking
 - **Background Jobs**: Quartz.NET scheduled jobs for processing and retry management
@@ -16,6 +17,7 @@ The solution consists of two primary ASP.NET Core services with comprehensive da
 - **Message Batching**: Configurable batching system for high-throughput scenarios
 
 ### 📥 Consumer Service (Reliable Processing)
+
 - **Kafka Consumer**: Multi-group consumer with topic-based message routing
 - **Idempotency**: Duplicate prevention using message IDs and idempotency keys
 - **Processing Tracking**: PostgreSQL tracking of processed and failed messages
@@ -25,11 +27,13 @@ The solution consists of two primary ASP.NET Core services with comprehensive da
 ## 🔄 Data Flow and Process Workflow
 
 ### 1. Message Publication Flow
+
 ```
 Client Request → Producer API → Message Batching → Outbox Storage → Kafka Publishing → Consumer Processing → Acknowledgment
 ```
 
 **Detailed Steps:**
+
 1. **Client Request**: Application sends message via REST API
 2. **Message Batching**: Messages queued for batch processing (configurable)
 3. **Outbox Storage**: Messages stored in PostgreSQL with PENDING status
@@ -38,11 +42,13 @@ Client Request → Producer API → Message Batching → Outbox Storage → Kafk
 6. **Status Updates**: Message status updated to SENT in outbox table
 
 ### 2. Message Processing Flow
+
 ```
 Kafka Topic → Consumer Service → Idempotency Check → Business Processing → Acknowledgment → Producer Notification
 ```
 
 **Detailed Steps:**
+
 1. **Kafka Consumption**: Consumer polls messages from assigned topics
 2. **Idempotency Check**: Verify message hasn't been processed (by ID + idempotency key)
 3. **Business Processing**: Execute domain-specific message processing logic
@@ -51,11 +57,13 @@ Kafka Topic → Consumer Service → Idempotency Check → Business Processing �
 6. **Outbox Update**: Producer updates message status to ACKNOWLEDGED/FAILED
 
 ### 3. Retry and Recovery Flow
+
 ```
 Failed Message → Retry Job → Consumer Group Check → Targeted Retry → Kafka Republish → Processing Attempt
 ```
 
 **Detailed Steps:**
+
 1. **Failure Detection**: Messages not acknowledged within timeout period
 2. **Retry Logic**: ProcessRetryMessagesJob identifies unacknowledged messages
 3. **Retry Strategy**: Configurable retry count (supports infinite retry with MaxRetries = -1)
@@ -67,6 +75,7 @@ Failed Message → Retry Job → Consumer Group Check → Targeted Retry → Kaf
 ### Producer Service Database (PostgreSQL)
 
 **OutboxMessage Table** - Core outbox pattern implementation:
+
 ```sql
 -- Message lifecycle tracking
 Id (Primary), Topic, Message, CreatedAt, Status, ProcessedAt
@@ -79,6 +88,7 @@ ScheduledRetryAt, IdempotencyKey
 ```
 
 **TopicRegistration Table** - Topic and consumer group configuration:
+
 ```sql
 -- Topic configuration
 Id, TopicName, Description, IsActive, CreatedAt, UpdatedAt
@@ -88,6 +98,7 @@ ConsumerGroupRegistrations (1:Many relationship)
 ```
 
 **ConsumerGroupRegistration Table** - Consumer group settings:
+
 ```sql
 -- Consumer group configuration
 Id, ConsumerGroupName, TopicRegistrationId, RequiresAcknowledgment
@@ -98,6 +109,7 @@ TopicRegistration (Foreign Key), ConsumerAcknowledgments (1:Many)
 ```
 
 **Service Agent Tables** - Horizontal scaling support:
+
 ```sql
 -- ProducerServiceAgent: Tracks producer instances
 -- ConsumerServiceAgent: Tracks consumer instances  
@@ -107,6 +119,7 @@ TopicRegistration (Foreign Key), ConsumerAcknowledgments (1:Many)
 ### Consumer Service Database (PostgreSQL)
 
 **ProcessedMessage Table** - Idempotency tracking:
+
 ```sql
 -- Primary key: (MessageId, ConsumerGroup)
 MessageId, ConsumerGroup, Topic, ProcessedAt, Content
@@ -115,6 +128,7 @@ ConsumerInstanceId, IdempotencyKey
 ```
 
 **FailedMessage Table** - Failure tracking:
+
 ```sql
 -- Failed message details
 Id, MessageId, ConsumerGroup, Topic, ErrorMessage, FailedAt
@@ -126,6 +140,7 @@ ProducerServiceId, ProducerInstanceId, ConsumerServiceId
 ### Environment Variables
 
 **Producer Service Configuration:**
+
 ```bash
 # Database connection
 ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password"
@@ -140,6 +155,7 @@ ASPNETCORE_ENVIRONMENT="Development"
 ```
 
 **Consumer Service Configuration:**
+
 ```bash
 # Database connection
 ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=outbox_db;Username=outbox_user;Password=outbox_password"
@@ -159,12 +175,14 @@ ProducerService__BaseUrl="http://localhost:5299"
 ### Topic and Consumer Group Setup
 
 **Default Seeded Topics:**
+
 - `user-events` → `default-consumer-group`
 - `order-events` → `default-consumer-group`, `inventory-service`  
 - `analytics-events` → `analytics-group`
 - `notification-events` → `notification-group`, `email-service`
 
 **Consumer Group Configuration:**
+
 ```json
 {
   "ConsumerGroups": [
@@ -183,6 +201,7 @@ ProducerService__BaseUrl="http://localhost:5299"
 ### Background Job Configuration
 
 **Quartz.NET Job Schedule:**
+
 - **MessageBatchingJob**: 30 seconds (flushes pending batches)
 - **ProcessPendingMessagesJob**: 5 seconds (sends messages to Kafka)
 - **ProcessRetryMessagesJob**: 10 seconds (handles failed messages)
@@ -194,6 +213,7 @@ ProducerService__BaseUrl="http://localhost:5299"
 ### 1. Initial Setup and Configuration
 
 **Step 1: Topic Registration**
+
 ```bash
 # Register a new topic with consumer groups
 curl -X POST "http://localhost:5301/api/topics/register" \
@@ -213,6 +233,7 @@ curl -X POST "http://localhost:5301/api/topics/register" \
 ```
 
 **Step 2: Configure Consumer Groups**
+
 ```bash
 # Update consumer group settings (enable infinite retry)
 curl -X PUT "http://localhost:5301/api/topics/consumer-groups/1" \
@@ -228,6 +249,7 @@ curl -X PUT "http://localhost:5301/api/topics/consumer-groups/1" \
 ### 2. Message Publishing
 
 **Batch Processing (Default):**
+
 ```bash
 curl -X POST "http://localhost:5301/api/messages/send" \
   -H "Content-Type: application/json" \
@@ -239,6 +261,7 @@ curl -X POST "http://localhost:5301/api/messages/send" \
 ```
 
 **Immediate Processing:**
+
 ```bash
 curl -X POST "http://localhost:5301/api/messages/send" \
   -H "Content-Type: application/json" \
@@ -252,6 +275,7 @@ curl -X POST "http://localhost:5301/api/messages/send" \
 ### 3. Consumer Implementation
 
 **Custom Message Processor Example:**
+
 ```csharp
 public class CustomMessageProcessor : IMessageProcessor
 {
@@ -287,6 +311,7 @@ public class CustomMessageProcessor : IMessageProcessor
 ### 4. Monitoring and Troubleshooting
 
 **Health Check Endpoints:**
+
 ```bash
 # Producer service health
 curl "http://localhost:5301/api/messages/health"
@@ -299,6 +324,7 @@ curl "http://localhost:5401/api/consumer/processed/group-a"
 ```
 
 **Message Status Monitoring:**
+
 ```bash
 # Check outbox message status
 curl "http://localhost:5301/api/messages/pending"
@@ -306,6 +332,7 @@ curl "http://localhost:5301/api/messages/consumer-group/group-a"
 ```
 
 **Verification Script:**
+
 ```powershell
 # Run comprehensive acknowledgment verification
 .\P2-3_verify-acknowledgments.ps1
@@ -314,6 +341,7 @@ curl "http://localhost:5301/api/messages/consumer-group/group-a"
 ### 5. Scaling Operations
 
 **Horizontal Scaling with Docker:**
+
 ```bash
 # Scale producers and consumers
 docker-compose up -d --scale producer1=3 --scale consumer1=6
@@ -326,21 +354,25 @@ curl "http://localhost:5301/api/agents/consumers"
 ### 6. Common Troubleshooting
 
 **Issue: Messages stuck in PENDING status**
+
 - Check if ProcessPendingMessagesJob is running
 - Verify Kafka connectivity
 - Check producer service logs
 
-**Issue: Messages never acknowledged** 
+**Issue: Messages never acknowledged**
+
 - Verify consumer group configuration
 - Check consumer service health endpoints
 - Verify acknowledgment timeout settings
 
 **Issue: Duplicate message processing**
+
 - Check idempotency key implementation
 - Verify ProcessedMessage table constraints
 - Review consumer message processing logic
 
 **Issue: Infinite retry loop**
+
 - Check MaxRetries configuration (-1 = infinite)
 - Verify message processing logic doesn't always fail
 - Monitor failed message patterns
@@ -348,24 +380,28 @@ curl "http://localhost:5301/api/agents/consumers"
 ## 🔍 Side Effects and Considerations
 
 ### Performance Impact
+
 - **Database Load**: Outbox pattern increases database writes (1 message = 1+ outbox entries)
 - **Kafka Load**: Messages published after database commit (eventual consistency)
 - **Memory Usage**: Message batching requires in-memory queuing
 - **Processing Latency**: Additional hop through outbox table adds ~50-100ms delay
 
 ### Consistency Guarantees
+
 - **At-Least-Once Delivery**: Messages may be delivered multiple times (idempotency required)
 - **Eventual Consistency**: Small delay between database commit and message publishing
 - **Ordering**: Messages processed in creation order within same consumer group
 - **Durability**: Messages persisted in database before publishing to Kafka
 
 ### Operational Overhead
+
 - **Monitoring**: Requires monitoring of background jobs and message states
 - **Cleanup**: Old messages need periodic cleanup (CleanupOldMessagesJob)
 - **Scaling**: Consumer group assignment affects message distribution
 - **Failure Handling**: Failed messages need manual intervention or infinite retry
 
 ### Data Retention
+
 - **Outbox Messages**: Cleaned up after 7 days (configurable)
 - **Failed Messages**: Manual cleanup required
 - **Health Checks**: Cleaned up after 24 hours
@@ -404,10 +440,11 @@ Start the entire system with scaled instances:
 ```
 
 This will start:
+
 - PostgreSQL (port 5432)
 - Kafka (port 9092)
 - Zookeeper (port 2181)
-- Kafka UI (http://localhost:8080)
+- Kafka UI (<http://localhost:8080>)
 - 3 Producer Service instances (ports 5301, 5302, 5303)
 - 6 Consumer Service instances (ports 5401, 5402, 5403, 5404, 5405, 5406)
 
@@ -420,6 +457,7 @@ For development or testing with local services:
 ```
 
 This starts only the infrastructure (PostgreSQL, Kafka, Zookeeper, Kafka-UI).
+
 ### 3. Verify Setup
 
 Check system health:
@@ -485,7 +523,8 @@ curl "http://localhost:5287/api/consumer/health"
 
 ### Monitor with Kafka UI
 
-Visit http://localhost:8080 to:
+Visit <http://localhost:8080> to:
+
 - View topics and partitions
 - Monitor consumer groups
 - See message flow and lag
@@ -497,12 +536,14 @@ The system uses PostgreSQL for persistent storage and supports multiple consumer
 ### Environment Variables
 
 Services automatically detect their environment:
+
 - `ASPNETCORE_ENVIRONMENT=Development` (default)
 - `ASPNETCORE_ENVIRONMENT=Production` (for production deployment)
 
 ### Database Configuration
 
 PostgreSQL connection strings are configured through environment variables:
+
 - `ConnectionStrings__DefaultConnection` for Producer Service
 - `ConnectionStrings__ConsumerConnection` for Consumer Service
 
@@ -519,17 +560,20 @@ Consumer instances automatically register with different consumer groups to ensu
 
 ## Monitoring
 
-### Kafka UI (http://localhost:8080)
+### Kafka UI (<http://localhost:8080>)
+
 - View topics and partitions
 - Monitor consumer groups
 - See message flow and performance metrics
 
 ### Database Monitoring
+
 - PostgreSQL accessible on port 5432
 - Use your preferred database management tool
 - Monitor outbox tables and message states
 
 ### Service Logs
+
 ```powershell
 # View all service logs
 docker-compose logs -f
@@ -565,11 +609,13 @@ For local development, you can run infrastructure only and develop services loca
 ```
 
 # Run services locally with dotnet run
+
 cd ProducerService
-dotnet run --urls "http://localhost:5299"
+dotnet run --urls "<http://localhost:5299>"
 
 cd ConsumerService  
-dotnet run --urls "http://localhost:5287"
+dotnet run --urls "<http://localhost:5287>"
+
 ```
 
 ## Production Considerations
@@ -599,6 +645,7 @@ dotnet run --urls "http://localhost:5287"
    ```
 
 2. **Messages Not Being Processed**
+
    ```bash
    # Check Kafka logs
    docker logs outbox-kafka
@@ -608,6 +655,7 @@ dotnet run --urls "http://localhost:5287"
    ```
 
 3. **Consumer Group Issues**
+
    ```bash
    # Check consumer group status
    curl http://localhost:5301/api/topics/consumer-groups
@@ -677,6 +725,7 @@ ORDER BY om."ConsumerGroup", om."Status";
 ### Real-time Monitoring Endpoints
 
 #### Consumer Services
+
 ```bash
 # Check processed messages for specific consumer group
 curl http://localhost:5401/api/consumer/processed/group-a
@@ -689,6 +738,7 @@ curl http://localhost:5401/health
 ```
 
 #### Producer Services
+
 ```bash
 # Check pending messages
 curl http://localhost:5301/api/messages/pending

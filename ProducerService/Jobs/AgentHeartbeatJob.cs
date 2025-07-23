@@ -4,6 +4,11 @@ using ProducerService.Services;
 
 namespace ProducerService.Jobs;
 
+/// <summary>
+/// Scheduled job that maintains producer agent registration and performs system health monitoring.
+/// Sends periodic heartbeats, collects health data, and manages agent lifecycle operations.
+/// Prevents concurrent execution to avoid resource conflicts and duplicate operations.
+/// </summary>
 [DisallowConcurrentExecution]
 public class AgentHeartbeatJob : IJob
 {
@@ -13,6 +18,14 @@ public class AgentHeartbeatJob : IJob
   private readonly string _serviceId;
   private readonly string _instanceId;
 
+  /// <summary>
+  /// Initializes the Agent Heartbeat Job with required dependencies and service identification.
+  /// Extracts service ID and instance ID from environment variables for agent tracking.
+  /// </summary>
+  /// <param name="serviceProvider">Service provider for dependency resolution</param>
+  /// <param name="logger">Logger for tracking heartbeat operations</param>
+  /// <param name="configuration">Configuration for service settings</param>
+  /// <exception cref="InvalidOperationException">Thrown when required environment variables are missing</exception>
   public AgentHeartbeatJob(
       IServiceProvider serviceProvider,
       ILogger<AgentHeartbeatJob> logger,
@@ -24,11 +37,17 @@ public class AgentHeartbeatJob : IJob
 
     _serviceId = Environment.GetEnvironmentVariable("SERVICE_ID")
         ?? Environment.GetEnvironmentVariable("PRODUCER_SERVICE_ID")
-        ?? $"producer-{Environment.MachineName}";
+        ?? throw new InvalidOperationException("SERVICE_ID or PRODUCER_SERVICE_ID environment variable must be set");
     _instanceId = Environment.GetEnvironmentVariable("INSTANCE_ID")
-        ?? $"{_serviceId}-{Guid.NewGuid():N}";
+        ?? throw new InvalidOperationException("INSTANCE_ID environment variable must be set");
   }
 
+  /// <summary>
+  /// Executes the heartbeat job to maintain agent registration and perform system maintenance.
+  /// Sends heartbeat with health data, performs health checks on other agents, and cleans up inactive agents.
+  /// </summary>
+  /// <param name="context">Quartz job execution context</param>
+  /// <returns>Task representing the async heartbeat operation</returns>
   public async Task Execute(IJobExecutionContext context)
   {
     try

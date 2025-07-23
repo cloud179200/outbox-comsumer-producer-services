@@ -1,124 +1,24 @@
+// Backward compatibility - imports from organized model files
+global using ConsumerService.Models.Core;
+
 namespace ConsumerService.Models;
 
-public class OutboxMessage
+// This file maintains backward compatibility while the codebase is organized
+// All model classes have been moved to more specific namespace files:
+// - Core models: ConsumerService.Models.Core
+
+// Re-export main classes for backward compatibility
+public class OutboxModels
 {
-  public string Id { get; set; } = Guid.NewGuid().ToString();
-  public string Topic { get; set; } = string.Empty;
-  public string Message { get; set; } = string.Empty;
-  public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-  public OutboxMessageStatus Status { get; set; } = OutboxMessageStatus.Pending;
-  public DateTime? ProcessedAt { get; set; }
-  public int RetryCount { get; set; } = 0;
-  public DateTime? LastRetryAt { get; set; }
-  public string? ErrorMessage { get; set; }
-  public string ConsumerGroup { get; set; } = string.Empty;
-
-  // Targeted retry properties
-  public bool IsRetry { get; set; } = false;
-  public string? TargetConsumerServiceId { get; set; }
-  public string? OriginalMessageId { get; set; }
-  public DateTime? ScheduledRetryAt { get; set; }
-
-  // Idempotency key for preventing duplicate processing
-  public string IdempotencyKey { get; set; } = string.Empty;
-}
-
-public enum OutboxMessageStatus
-{
-  Pending,
-  Sent,
-  Acknowledged,
-  Failed,
-  Expired
-}
-
-public class AcknowledgmentRequest
-{
-  public string MessageId { get; set; } = string.Empty;
-  public string ConsumerGroup { get; set; } = string.Empty;
-  public bool Success { get; set; } = true;
-  public string? ErrorMessage { get; set; }
-}
-
-public class ConsumerMessage
-{
-  public string MessageId { get; set; } = string.Empty;
-  public string Topic { get; set; } = string.Empty;
-  public string Content { get; set; } = string.Empty;
-  public string ConsumerGroup { get; set; } = string.Empty;
-  public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
-  public string ProducerServiceId { get; set; } = string.Empty;
-  public string ProducerInstanceId { get; set; } = string.Empty;
-
-  // Retry and targeting properties
-  public bool IsRetry { get; set; } = false;
-  public string? TargetConsumerServiceId { get; set; }
-  public string? OriginalMessageId { get; set; }
-  public string IdempotencyKey { get; set; } = string.Empty;
-  public int RetryCount { get; set; } = 0;
-}
-
-public class ProcessedMessage
-{
-  public string MessageId { get; set; } = string.Empty;
-  public string ConsumerGroup { get; set; } = string.Empty;
-  public string Topic { get; set; } = string.Empty;
-  public DateTime ProcessedAt { get; set; } = DateTime.UtcNow;
-  public string? Content { get; set; }
-  public string ProducerServiceId { get; set; } = string.Empty;
-  public string ProducerInstanceId { get; set; } = string.Empty;
-  public string ConsumerServiceId { get; set; } = string.Empty; public string ConsumerInstanceId { get; set; } = string.Empty;
-  public string IdempotencyKey { get; set; } = string.Empty;
-}
-
-public class FailedMessage
-{
-  public int Id { get; set; }
-  public string MessageId { get; set; } = string.Empty;
-  public string ConsumerGroup { get; set; } = string.Empty;
-  public string Topic { get; set; } = string.Empty;
-  public string? ErrorMessage { get; set; }
-  public DateTime FailedAt { get; set; } = DateTime.UtcNow;
-  public int RetryCount { get; set; } = 0;
-  public string? Content { get; set; }
-  public string ProducerServiceId { get; set; } = string.Empty;
-  public string ProducerInstanceId { get; set; } = string.Empty;
-  public string ConsumerServiceId { get; set; } = string.Empty;
-  public string ConsumerInstanceId { get; set; } = string.Empty;
-}
-
-// Agent Management Models for Horizontal Scaling
-public enum ServiceType
-{
-  Producer,
-  Consumer
-}
-
-public enum HealthStatus
-{
-  Healthy,
-  Degraded,
-  Unhealthy,
-  Unknown
-}
-
-public class AgentRegistrationRequest
-{
-  public string ServiceId { get; set; } = string.Empty;
-  public string ServiceName { get; set; } = string.Empty;
-  public string HostName { get; set; } = string.Empty;
-  public string IpAddress { get; set; } = string.Empty;
-  public int Port { get; set; }
-  public string BaseUrl { get; set; } = string.Empty;
-  public ServiceType ServiceType { get; set; }
-  public string? Version { get; set; }
-  public Dictionary<string, string> Metadata { get; set; } = new();
-  public string[] AssignedConsumerGroups { get; set; } = Array.Empty<string>();
-  public string[] AssignedTopics { get; set; } = Array.Empty<string>();
-}
-
-public class ConsumerGroupConfig
-{
-  public string GroupName { get; set; } = string.Empty;
-  public string[] Topics { get; set; } = Array.Empty<string>();
+  // Core models available via: ConsumerService.Models.Core
+  // - OutboxMessage
+  // - OutboxMessageStatus (enum)
+  // - ConsumerMessage
+  // - ProcessedMessage
+  // - FailedMessage
+  // - AcknowledgmentRequest
+  // - ConsumerGroupConfig
+  // - AgentRegistrationRequest
+  // - ServiceType (enum)
+  // - HealthStatus (enum)
 }

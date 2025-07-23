@@ -44,6 +44,14 @@ public class AgentService : IAgentService
   private readonly string _currentServiceId;
   private readonly string _currentInstanceId;
 
+  /// <summary>
+  /// Initializes a new instance of the AgentService with required dependencies.
+  /// Sets up service identification from environment variables for agent tracking.
+  /// </summary>
+  /// <param name="dbContext">Database context for agent operations</param>
+  /// <param name="logger">Logger for tracking agent operations</param>
+  /// <param name="configuration">Configuration for service settings</param>
+  /// <param name="httpClient">HTTP client for health check operations</param>
   public AgentService(
       OutboxDbContext dbContext,
       ILogger<AgentService> logger,
@@ -63,6 +71,12 @@ public class AgentService : IAgentService
         ?? $"{_currentServiceId}-{Guid.NewGuid():N}";
   }
 
+  /// <summary>
+  /// Registers a new producer agent in the system for service discovery and load balancing.
+  /// Creates or updates agent registration with current status and metadata.
+  /// </summary>
+  /// <param name="request">Registration details including service identification and endpoints</param>
+  /// <returns>Agent response with registration details and assigned ID</returns>
   public async Task<AgentResponse> RegisterProducerAgentAsync(AgentRegistrationRequest request)
   {
     try
@@ -135,6 +149,12 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Registers a new consumer agent with assigned consumer groups and topics.
+  /// Enables targeted message delivery and horizontal scaling across consumer instances.
+  /// </summary>
+  /// <param name="request">Registration details including consumer group assignments</param>
+  /// <returns>Agent response with registration details and assigned configurations</returns>
   public async Task<AgentResponse> RegisterConsumerAgentAsync(AgentRegistrationRequest request)
   {
     try
@@ -211,6 +231,18 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Updates producer agent heartbeat to maintain active status and health information.
+  /// Records health metrics and system status for monitoring and load balancing decisions.
+  /// </summary>
+  /// <param name="request">Heartbeat information including status and health data</param>
+  /// <returns>True if heartbeat successfully recorded, false if agent not found</returns>
+  /// <summary>
+  /// Updates producer agent heartbeat to maintain active status and health monitoring.
+  /// Records health data and status updates for load balancing decisions.
+  /// </summary>
+  /// <param name="request">Heartbeat request containing status and health information</param>
+  /// <returns>True if heartbeat was successfully updated, false if agent not found</returns>
   public async Task<bool> UpdateProducerHeartbeatAsync(AgentHeartbeatRequest request)
   {
     try
@@ -251,6 +283,18 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Updates consumer agent heartbeat with current processing status and assigned workload.
+  /// Maintains consumer group assignments and processing metrics for workload distribution.
+  /// </summary>
+  /// <param name="request">Heartbeat information including consumer group status</param>
+  /// <returns>True if heartbeat successfully recorded, false if agent not found</returns>
+  /// <summary>
+  /// Updates consumer agent heartbeat to maintain active status and track assigned consumer groups.
+  /// Records health checks and status updates for service discovery and monitoring.
+  /// </summary>
+  /// <param name="request">Heartbeat request with status, health data, and consumer group assignments</param>
+  /// <returns>True if heartbeat was successfully updated, false if agent not found</returns>
   public async Task<bool> UpdateConsumerHeartbeatAsync(AgentHeartbeatRequest request)
   {
     try
@@ -291,6 +335,11 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Retrieves all currently active producer agents for service discovery and load balancing.
+  /// Returns agents that have sent recent heartbeats and are available for message processing.
+  /// </summary>
+  /// <returns>List of active producer agents with their current status and endpoints</returns>
   public async Task<List<AgentResponse>> GetActiveProducerAgentsAsync()
   {
     try
@@ -321,6 +370,11 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Retrieves all currently active consumer agents with their assigned consumer groups.
+  /// Essential for targeted message delivery and understanding system capacity.
+  /// </summary>
+  /// <returns>List of active consumer agents with group assignments and processing status</returns>
   public async Task<List<AgentResponse>> GetActiveConsumerAgentsAsync()
   {
     try
@@ -511,6 +565,12 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Finds consumer agents assigned to a specific consumer group for targeted message delivery.
+  /// Enables efficient routing of messages to appropriate consumer instances.
+  /// </summary>
+  /// <param name="consumerGroup">The consumer group to find agents for</param>
+  /// <returns>List of healthy consumer agents assigned to the specified group</returns>
   public async Task<List<AgentResponse>> GetHealthyConsumersForGroupAsync(string consumerGroup)
   {
     try
@@ -541,6 +601,13 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Performs health checks on registered agents by calling their health endpoints.
+  /// Records response times and health status for monitoring and alerting purposes.
+  /// </summary>
+  /// <param name="serviceId">The service ID of the agent to check</param>
+  /// <param name="serviceType">The type of service (Producer or Consumer)</param>
+  /// <returns>Task representing the health check operation</returns>
   public async Task PerformHealthCheckAsync(string serviceId, ServiceType serviceType)
   {
     try
@@ -593,6 +660,11 @@ public class AgentService : IAgentService
     }
   }
 
+  /// <summary>
+  /// Removes inactive agents that haven't sent heartbeats within the configured timeout period.
+  /// Maintains system accuracy by cleaning up stale agent registrations automatically.
+  /// </summary>
+  /// <returns>Task representing the cleanup operation</returns>
   public async Task CleanupInactiveAgentsAsync()
   {
     try

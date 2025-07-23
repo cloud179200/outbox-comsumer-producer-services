@@ -37,7 +37,7 @@ function Start-InfrastructureOnly {
 }
 
 function Build-Services {
-    Write-Host "`n🔨 Building Services..." -ForegroundColor Cyan
+    Write-Host "`n[BUILD] Building Services..." -ForegroundColor Cyan
     
     Write-Host "  Building Producer Service..." -ForegroundColor White
     docker-compose build producer1
@@ -45,11 +45,11 @@ function Build-Services {
     Write-Host "  Building Consumer Service..." -ForegroundColor White
     docker-compose build consumer1
     
-    Write-Host "✅ Services built successfully!" -ForegroundColor Green
+    Write-Host "[SUCCESS] Services built successfully!" -ForegroundColor Green
 }
 
 function Start-AllServices {
-    Write-Host "`n🚀 Starting All Services..." -ForegroundColor Cyan
+    Write-Host "`n[START] Starting All Services..." -ForegroundColor Cyan
     docker-compose up -d
     
     Write-Host "`n⏳ Waiting for services to start..." -ForegroundColor Yellow
@@ -62,7 +62,7 @@ function Stop-AllServices {
     Write-Host "`n🛑 Stopping All Services..." -ForegroundColor Cyan
     docker-compose down
     
-    Write-Host "✅ All services stopped!" -ForegroundColor Green
+    Write-Host "[SUCCESS] All services stopped!" -ForegroundColor Green
 }
 
 function Test-Services {
@@ -74,10 +74,10 @@ function Test-Services {
         $port = 5300 + $i
         try {
             $response = Invoke-RestMethod -Uri "http://localhost:$port/api/messages/health" -Method GET -TimeoutSec 10
-            Write-Host "  ✅ Producer $i (port $port) is healthy" -ForegroundColor Green
+            Write-Host "  [OK] Producer $i (port $port) is healthy" -ForegroundColor Green
         }
         catch {
-            Write-Host "  ❌ Producer $i (port $port) is not responding" -ForegroundColor Red
+            Write-Host "  [ERROR] Producer $i (port $port) is not responding" -ForegroundColor Red
         }
     }
     
@@ -92,10 +92,10 @@ function Test-Services {
         }
         try {
             $response = Invoke-RestMethod -Uri "http://localhost:$port/api/consumer/health" -Method GET -TimeoutSec 10
-            Write-Host "  ✅ Consumer $i (port $port, $group) is healthy" -ForegroundColor Green
+            Write-Host "  [OK] Consumer $i (port $port, $group) is healthy" -ForegroundColor Green
         }
         catch {
-            Write-Host "  ❌ Consumer $i (port $port, $group) is not responding" -ForegroundColor Red
+            Write-Host "  [ERROR] Consumer $i (port $port, $group) is not responding" -ForegroundColor Red
         }
     }
 }
@@ -174,6 +174,6 @@ while ($true) {
             Write-Host "`nGoodbye!" -ForegroundColor Green
             break 
         }
-        default { Write-Host "`n❌ Invalid choice. Please try again." -ForegroundColor Red }
+        default { Write-Host "`n[ERROR] Invalid choice. Please try again." -ForegroundColor Red }
     }
 }

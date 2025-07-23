@@ -12,6 +12,13 @@ public class MessagesController : ControllerBase
   private readonly IQuartzMessageBatchingService _quartzBatchingService;
   private readonly ILogger<MessagesController> _logger;
 
+  /// <summary>
+  /// Initializes the MessagesController with required services for message processing.
+  /// Sets up outbox service for persistence and batching service for performance optimization.
+  /// </summary>
+  /// <param name="outboxService">Service for managing outbox message persistence and status</param>
+  /// <param name="quartzBatchingService">Service for batch processing of messages to improve throughput</param>
+  /// <param name="logger">Logger for tracking message operations and debugging</param>
   public MessagesController(IOutboxService outboxService, IQuartzMessageBatchingService quartzBatchingService, ILogger<MessagesController> logger)
   {
     _outboxService = outboxService;
@@ -19,6 +26,11 @@ public class MessagesController : ControllerBase
     _logger = logger;
   }
 
+  /// <summary>
+  /// Health check endpoint to verify service availability and status.
+  /// Used by load balancers and monitoring systems to determine service health.
+  /// </summary>
+  /// <returns>Health status object with timestamp and service identification</returns>
   [HttpGet("health")]
   public ActionResult<object> GetHealth()
   {
@@ -30,6 +42,12 @@ public class MessagesController : ControllerBase
     });
   }
 
+  /// <summary>
+  /// Sends a message through the outbox pattern with support for both batched and immediate processing.
+  /// Handles message validation, routing to consumer groups, and provides flexible processing options.
+  /// </summary>
+  /// <param name="request">Message request containing topic, content, consumer group, and processing preferences</param>
+  /// <returns>Message response with processing status, message ID, and target consumer groups</returns>
   [HttpPost("send")]
   public async Task<ActionResult<MessageResponse>> SendMessage([FromBody] MessageRequest request)
   {

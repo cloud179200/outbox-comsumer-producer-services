@@ -58,7 +58,7 @@ ConsumerGroupConfig[] GetConsumerGroupConfig(IConfiguration configuration)
     {
         var topics = !string.IsNullOrEmpty(envTopics)
             ? envTopics.Split(',', StringSplitOptions.RemoveEmptyEntries)
-            : new[] { "shared-events" }; // Default to shared-events topic
+            : throw new InvalidOperationException("KAFKA_TOPICS environment variable must be set if KAFKA_CONSUMER_GROUP is provided");
 
         return new ConsumerGroupConfig[]
         {
@@ -70,26 +70,7 @@ ConsumerGroupConfig[] GetConsumerGroupConfig(IConfiguration configuration)
         };
     }
 
-    // Fall back to appsettings configuration
-    return configuration.GetSection("ConsumerGroups").Get<ConsumerGroupConfig[]>()
-        ?? new ConsumerGroupConfig[]
-        {
-            new ConsumerGroupConfig
-            {
-                GroupName = "default-consumer-group",
-                Topics = new[] { "user-events", "order-events" }
-            },
-            new ConsumerGroupConfig
-            {
-                GroupName = "analytics-group",
-                Topics = new[] { "analytics-events" }
-            },
-            new ConsumerGroupConfig
-            {
-                GroupName = "notification-group",
-                Topics = new[] { "notification-events" }
-            }
-        };
+    throw new InvalidOperationException("KAFKA_CONSUMER_GROUP environment variable must be set or provide ConsumerGroups configuration in environment variables");
 }
 
 // Configure Quartz.NET
@@ -146,7 +127,7 @@ async Task RegisterConsumerAgentAsync(string serviceId, string instanceId, IConf
     try
     {
         using var httpClient = new HttpClient();
-        var producerServiceUrl = configuration["ProducerService:BaseUrl"] ?? "http://localhost:5299";
+        var producerServiceUrl = configuration["ProducerService:BaseUrl"] ?? throw new InvalidOperationException("ProducerService:BaseUrl configuration is required");
 
         var hostName = Environment.MachineName;
         var ipAddress = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Split("://").LastOrDefault()?.Split(":").FirstOrDefault() ?? "localhost";
@@ -160,8 +141,8 @@ async Task RegisterConsumerAgentAsync(string serviceId, string instanceId, IConf
 
         var port = 80; // Default port for containerized services
 
-        var consumerGroups = configuration.GetSection("ConsumerGroups").Get<ConsumerService.Models.ConsumerGroupConfig[]>()
-            ?? Array.Empty<ConsumerService.Models.ConsumerGroupConfig>();
+        var consumerGroups = configuration.GetSection("ConsumerGroups").Get<ConsumerGroupConfig[]>()
+            ?? Array.Empty<ConsumerGroupConfig>();
 
         var assignedGroups = consumerGroups.Select(cg => cg.GroupName).ToArray();
         var assignedTopics = consumerGroups.SelectMany(cg => cg.Topics).Distinct().ToArray();

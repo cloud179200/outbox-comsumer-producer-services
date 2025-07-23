@@ -2,6 +2,11 @@ using Quartz;
 
 namespace ConsumerService.Jobs;
 
+/// <summary>
+/// Scheduled job that maintains consumer agent registration with the producer service.
+/// Sends periodic heartbeats with health data and consumer group assignments for service discovery.
+/// Prevents concurrent execution to avoid duplicate heartbeat transmissions.
+/// </summary>
 [DisallowConcurrentExecution]
 public class ConsumerHeartbeatJob : IJob
 {
@@ -9,6 +14,13 @@ public class ConsumerHeartbeatJob : IJob
   private readonly ILogger<ConsumerHeartbeatJob> _logger;
   private readonly IConfiguration _configuration;
 
+  /// <summary>
+  /// Initializes the Consumer Heartbeat Job with required dependencies.
+  /// Sets up service provider, logging, and configuration access for heartbeat operations.
+  /// </summary>
+  /// <param name="serviceProvider">Service provider for dependency resolution</param>
+  /// <param name="logger">Logger for tracking heartbeat operations</param>
+  /// <param name="configuration">Configuration for producer service URL and settings</param>
   public ConsumerHeartbeatJob(
       IServiceProvider serviceProvider,
       ILogger<ConsumerHeartbeatJob> logger,
@@ -19,6 +31,12 @@ public class ConsumerHeartbeatJob : IJob
     _configuration = configuration;
   }
 
+  /// <summary>
+  /// Executes the heartbeat job to maintain consumer agent registration.
+  /// Sends heartbeat to producer service with health data and consumer group assignments.
+  /// </summary>
+  /// <param name="context">Quartz job execution context</param>
+  /// <returns>Task representing the async heartbeat operation</returns>
   public async Task Execute(IJobExecutionContext context)
   {
     _logger.LogDebug("Consumer heartbeat job started");

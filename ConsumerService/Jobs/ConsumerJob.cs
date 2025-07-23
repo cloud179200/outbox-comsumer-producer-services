@@ -24,8 +24,8 @@ public class ConsumerJob : IJob
   public async Task Execute(IJobExecutionContext context)
   {
     var jobData = context.JobDetail.JobDataMap;
-    var consumerGroup = jobData.GetString("ConsumerGroup") ?? "default-consumer-group";
-    var topics = jobData.GetString("Topics")?.Split(',') ?? new[] { "user-events" };
+    var consumerGroup = jobData.GetString("ConsumerGroup") ?? throw new ArgumentNullException("ConsumerGroup must be provided in job data");
+    var topics = jobData.GetString("Topics")?.Split(',') ?? throw new ArgumentNullException("Topics must be provided in job data");
 
     _logger.LogDebug("Consumer job started for group {ConsumerGroup} with topics: [{Topics}]",
         consumerGroup, string.Join(", ", topics));

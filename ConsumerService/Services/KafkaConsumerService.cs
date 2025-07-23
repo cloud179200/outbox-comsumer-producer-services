@@ -150,9 +150,11 @@ public class KafkaConsumerService : IKafkaConsumerService
       // Process the message using scoped services
       using var scope = _serviceProvider.CreateScope();
       var messageProcessor = scope.ServiceProvider.GetRequiredService<IMessageProcessor>();
-      var success = await messageProcessor.ProcessMessageAsync(consumerMessage);      // Send acknowledgment to producer
-      await SendAcknowledgment(messageId, consumerGroup, success); _logger.LogInformation("Message {MessageId} processed successfully by consumer group {ConsumerGroup}",
-          messageId, consumerGroup);
+      var success = await messageProcessor.ProcessMessageAsync(consumerMessage);
+
+      // Send acknowledgment to producer
+      await SendAcknowledgment(messageId, consumerGroup, success);
+      _logger.LogInformation("Message {MessageId} processed successfully by consumer group {ConsumerGroup}", messageId, consumerGroup);
     }
     catch (Exception ex)
     {

@@ -34,6 +34,7 @@ public class TopicRegistrationService : ITopicRegistrationService
   {
     try
     {
+      await _dbContext.Database.BeginTransactionAsync();
       // Check if topic already exists
       var existingTopic = await _dbContext.TopicRegistrations
           .FirstOrDefaultAsync(t => t.TopicName == request.TopicName);
@@ -76,11 +77,12 @@ public class TopicRegistrationService : ITopicRegistrationService
 
       _logger.LogInformation("Registered topic {TopicName} with {ConsumerGroupCount} consumer groups",
           request.TopicName, request.ConsumerGroups.Count);
-
+      await _dbContext.Database.CommitTransactionAsync();
       return await GetTopicAsync(topicRegistration.Id);
     }
     catch (Exception ex)
     {
+      await _dbContext.Database.RollbackTransactionAsync();
       _logger.LogError(ex, "Error registering topic {TopicName}", request.TopicName);
       return null;
     }

@@ -23,8 +23,7 @@ public class OutboxModels
 {
   // Core models available via: ProducerService.Models.Core
   // - TopicRegistration
-  // - ConsumerGroupRegistration  
-  // - ConsumerAcknowledgment
+  // - ConsumerGroupRegistration
 
   // Agent models available via: ProducerService.Models.Agents
   // - ProducerServiceAgent

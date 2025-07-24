@@ -11,7 +11,6 @@ public class OutboxDbContext : DbContext
   public DbSet<OutboxMessage> OutboxMessages { get; set; }
   public DbSet<TopicRegistration> TopicRegistrations { get; set; }
   public DbSet<ConsumerGroupRegistration> ConsumerGroupRegistrations { get; set; }
-  public DbSet<ConsumerAcknowledgment> ConsumerAcknowledgments { get; set; }
 
   // Agent Management for Horizontal Scaling
   public DbSet<ProducerServiceAgent> ProducerServiceAgents { get; set; }
@@ -70,21 +69,9 @@ public class OutboxDbContext : DbContext
                 .WithMany(t => t.ConsumerGroups)
                 .HasForeignKey(e => e.TopicRegistrationId)
                 .OnDelete(DeleteBehavior.Cascade);
-    });    // ConsumerAcknowledgment configuration
-    modelBuilder.Entity<ConsumerAcknowledgment>(entity =>
-    {
-      entity.HasKey(e => e.Id);
-      entity.Property(e => e.MessageId).HasMaxLength(50).IsRequired();
-      entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
+    });
 
-      entity.HasIndex(e => new { e.MessageId, e.ConsumerGroupRegistrationId }).IsUnique();
-
-      // Foreign key relationship
-      entity.HasOne(e => e.ConsumerGroupRegistration)
-                .WithMany(c => c.Acknowledgments)
-                .HasForeignKey(e => e.ConsumerGroupRegistrationId)
-                .OnDelete(DeleteBehavior.Cascade);
-    });    // ProducerServiceAgent configuration
+    // ProducerServiceAgent configuration
     modelBuilder.Entity<ProducerServiceAgent>(entity =>
     {
       entity.HasKey(e => e.Id);

@@ -1,12 +1,4 @@
+-- ConsumerAcknowledgments table has been removed from the system
+-- This query is no longer applicable as acknowledgments are tracked through message status only
 SELECT
-  "MessageId",
-  "ConsumerGroupRegistrationId",
-  "Success",
-  "AcknowledgedAt",
-  "ErrorMessage"
-FROM
-  "ConsumerAcknowledgments"
-ORDER BY
-  "AcknowledgedAt" DESC
-LIMIT
-  5;
+  'ConsumerAcknowledgments table removed - use OutboxMessages status instead' as Notice;

@@ -107,7 +107,7 @@ Id, ConsumerGroupName, TopicRegistrationId, RequiresAcknowledgment
 IsActive, AcknowledgmentTimeoutMinutes, MaxRetries, CreatedAt
 
 -- Navigation properties
-TopicRegistration (Foreign Key), ConsumerAcknowledgments (1:Many)
+TopicRegistration (Foreign Key)
 ```
 
 **Service Agent Tables** - Horizontal scaling support:
@@ -735,11 +735,6 @@ The system includes comprehensive monitoring scripts to verify message processin
 #### 3. SQL Verification Queries
 
 ```sql
--- Check latest acknowledgments
-SELECT "MessageId", "ConsumerGroupRegistrationId", "Success", "AcknowledgedAt", "ErrorMessage"
-FROM "ConsumerAcknowledgments"
-ORDER BY "AcknowledgedAt" DESC LIMIT 10;
-
 -- Check outbox message status by consumer group
 SELECT om."ConsumerGroup", om."Status", COUNT(*) as "Count"
 FROM "OutboxMessages" om

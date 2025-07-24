@@ -28,18 +28,4 @@ public class ConsumerGroupRegistration
 
   // Navigation property
   public TopicRegistration TopicRegistration { get; set; } = null!;
-  public ICollection<ConsumerAcknowledgment> Acknowledgments { get; set; } = new List<ConsumerAcknowledgment>();
-}
-
-public class ConsumerAcknowledgment
-{
-  public int Id { get; set; }
-  public string MessageId { get; set; } = string.Empty;
-  public int ConsumerGroupRegistrationId { get; set; }
-  public bool Success { get; set; }
-  public string? ErrorMessage { get; set; }
-  public DateTime AcknowledgedAt { get; set; } = DateTime.UtcNow;
-
-  // Navigation property
-  public ConsumerGroupRegistration ConsumerGroupRegistration { get; set; } = null!;
 }

@@ -3,7 +3,7 @@
 # Includes both high-volume batching (10M messages) and immediate processing (5K messages)
 
 param(
-  [string]$TestType = "full", # Options: "full", "batch-only", "nobatch-only"
+  [string]$TestType = "full", # Options: "full", "batch-only", "nobatch-only", "verification"
   [string]$Topic = "shared-events",
   [int]$BatchMessages = 10000000,
   [int]$NoBatchMessages = 5000,
@@ -11,13 +11,19 @@ param(
   [int]$MaxConcurrentBatches = 100,
   [int]$MaxConcurrentMessages = 50,
   [int]$VerificationTimeoutSeconds = 300,
+  [string]$SessionId = "",
   [bool]$Verbose = $false
 )
 
 $ErrorActionPreference = "Stop"
 
-# Generate unique session ID for this test run
-$SessionId = [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
+# Generate unique session ID for this test run, or use provided session for verification
+if ($SessionId -eq "" -or $TestType -eq "verification") {
+    if ($SessionId -eq "") {
+        $SessionId = [System.Guid]::NewGuid().ToString("N").Substring(0, 8)
+    }
+    # For verification mode, use the provided SessionId
+}
 $TestStartTime = Get-Date
 
 Write-Host "================================================================" -ForegroundColor Green
@@ -130,30 +136,39 @@ function Send-MessageBatch {
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     
     try {
-        $messages = @()
+        # Send each message individually to the correct endpoint
         for ($i = 0; $i -lt $BatchSize; $i++) {
             $messageIndex = $BatchStartIndex + $i
             $message = "SESSION:$SessionId | Batch Load Test Message $messageIndex - Batch: $BatchStartIndex-$($BatchStartIndex + $BatchSize - 1) - Producer: $ProducerUrl"
-            $messages += $message
-        }
-        
-        $body = @{
-            Topic = $Topic
-            Messages = $messages
-            UseBatching = $true
-        } | ConvertTo-Json
-        
-        $response = Invoke-RestMethod -Uri "$ProducerUrl/api/messages/send-batch" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 60
-        
-        if ($response -and $response.Success) {
-            $results.Sent = $BatchSize
-            if ($Verbose) {
-                Write-Host "[OK] Batch sent: $BatchSize messages to $ProducerUrl" -ForegroundColor Green
+            
+            try {
+                $body = @{
+                    Topic = $Topic
+                    Message = $message
+                    UseBatching = $false
+                } | ConvertTo-Json
+                
+                $response = Invoke-RestMethod -Uri "$ProducerUrl/api/messages/send" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 60
+                
+                if ($response -and ($response.Status -eq "Queued for batch processing" -or $response.Status -eq "Queued")) {
+                    $results.Sent++
+                }
+                else {
+                    $results.Failed++
+                    $results.Errors += "Message $messageIndex failed: Unexpected response status"
+                }
+            }
+            catch {
+                $results.Failed++
+                $results.Errors += "Message $messageIndex failed: $($_.Exception.Message)"
             }
         }
-        else {
-            $results.Failed = $BatchSize
-            $results.Errors += "Batch send failed: $($response.Error)"
+        
+        if ($Verbose -and $results.Sent -gt 0) {
+            Write-Host "[OK] Batch sent: $($results.Sent) messages to $ProducerUrl" -ForegroundColor Green
+        }
+        if ($Verbose -and $results.Failed -gt 0) {
+            Write-Host "[WARNING] Batch partial failure: $($results.Failed) messages failed to $ProducerUrl" -ForegroundColor Yellow
         }
     }
     catch {
@@ -231,9 +246,10 @@ function Get-SessionProcessedMessages {
         $response = Invoke-RestMethod -Uri "$ConsumerUrl/api/consumer/processed/$ConsumerGroup" -Method Get -TimeoutSec 10
         
         if ($response) {
+            # Filter by session ID only - remove time filtering as messages may be processed 
+            # before verification starts in high-volume load testing scenarios
             $sessionMessages = $response | Where-Object { 
-                $_.Content -like "*SESSION:$SessionId*" -and 
-                [DateTime]::Parse($_.ProcessedAt) -ge $TestStartTime 
+                $_.content -like "*SESSION:$SessionId*"
             }
             return $sessionMessages
         }
@@ -252,9 +268,9 @@ function Get-SessionFailedMessages {
         $response = Invoke-RestMethod -Uri "$ConsumerUrl/api/consumer/failed/$ConsumerGroup" -Method Get -TimeoutSec 10
         
         if ($response) {
+            # Filter by session ID only - remove time filtering for consistency
             $sessionMessages = $response | Where-Object { 
-                $_.Content -like "*SESSION:$SessionId*" -and 
-                [DateTime]::Parse($_.FailedAt) -ge $TestStartTime 
+                $_.content -like "*SESSION:$SessionId*"
             }
             return $sessionMessages
         }
@@ -395,27 +411,32 @@ if ($TestType -eq "full" -or $TestType -eq "batch-only") {
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         
         try {
-            $messages = @()
+            # Send each message individually to the correct endpoint
             for ($i = 0; $i -lt $BatchSize; $i++) {
                 $messageIndex = $BatchStartIndex + $i
                 $message = "SESSION:$SessionId | Batch Load Test Message $messageIndex - Batch: $BatchStartIndex-$($BatchStartIndex + $BatchSize - 1) - Producer: $ProducerUrl"
-                $messages += $message
-            }
-            
-            $body = @{
-                Topic = $Topic
-                Messages = $messages
-                UseBatching = $true
-            } | ConvertTo-Json
-            
-            $response = Invoke-RestMethod -Uri "$ProducerUrl/api/messages/send-batch" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 60
-            
-            if ($response -and $response.Success) {
-                $results.Sent = $BatchSize
-            }
-            else {
-                $results.Failed = $BatchSize
-                $results.Errors += "Batch send failed: $($response.Error)"
+                
+                try {
+                    $body = @{
+                        Topic = $Topic
+                        Message = $message
+                        UseBatching = $true
+                    } | ConvertTo-Json
+                    
+                    $response = Invoke-RestMethod -Uri "$ProducerUrl/api/messages/send" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 60
+                    
+                    if ($response -and ($response.Status -eq "Queued for batch processing" -or $response.Status -eq "Queued")) {
+                        $results.Sent++
+                    }
+                    else {
+                        $results.Failed++
+                        $results.Errors += "Message $messageIndex failed: Unexpected response status"
+                    }
+                }
+                catch {
+                    $results.Failed++
+                    $results.Errors += "Message $messageIndex failed: $($_.Exception.Message)"
+                }
             }
         }
         catch {
@@ -460,7 +481,13 @@ if ($TestType -eq "full" -or $TestType -eq "batch-only") {
             if ($batchJobs[$i].Handle.IsCompleted) {
                 try {
                     $result = $batchJobs[$i].PowerShell.EndInvoke($batchJobs[$i].Handle)
-                    $batchResults.Add($result)
+                    # PowerShell returns a collection, get the first (and should be only) item
+                    $actualResult = if ($result -is [System.Collections.ICollection] -and $result.Count -gt 0) { 
+                        $result[0] 
+                    } else { 
+                        $result 
+                    }
+                    $batchResults.Add($actualResult)
                     $completedBatches++
                     
                     if ($completedBatches % 100 -eq 0) {
@@ -495,9 +522,44 @@ if ($TestType -eq "full" -or $TestType -eq "batch-only") {
     $batchEndTime = Get-Date
     $batchElapsed = $batchEndTime - $batchStartTime
     
-    # Calculate batch results
-    $batchTotalSent = ($batchResults | Measure-Object -Property Sent -Sum).Sum
-    $batchTotalFailed = ($batchResults | Measure-Object -Property Failed -Sum).Sum
+    # Calculate batch results (with comprehensive safety checks)
+    Write-Host "DEBUG: Processing $($batchResults.Count) batch results" -ForegroundColor Cyan
+    
+    $batchTotalSent = 0
+    $batchTotalFailed = 0
+    
+    if ($batchResults.Count -gt 0) {
+        foreach ($result in $batchResults) {
+            Write-Host "DEBUG: Result type: $($result.GetType().Name)" -ForegroundColor Cyan
+            
+            # Handle different result types
+            if ($result -is [hashtable]) {
+                if ($result.ContainsKey('Sent')) {
+                    $batchTotalSent += $result['Sent']
+                    Write-Host "DEBUG: Found Sent = $($result['Sent']) in hashtable" -ForegroundColor Cyan
+                }
+                if ($result.ContainsKey('Failed')) {
+                    $batchTotalFailed += $result['Failed']
+                    Write-Host "DEBUG: Found Failed = $($result['Failed']) in hashtable" -ForegroundColor Cyan
+                }
+            }
+            elseif ($result.PSObject.Properties['Sent']) {
+                $batchTotalSent += $result.Sent
+                Write-Host "DEBUG: Found Sent = $($result.Sent) in PSObject" -ForegroundColor Cyan
+                if ($result.PSObject.Properties['Failed']) {
+                    $batchTotalFailed += $result.Failed
+                    Write-Host "DEBUG: Found Failed = $($result.Failed) in PSObject" -ForegroundColor Cyan
+                }
+            }
+            else {
+                Write-Host "DEBUG: Result object properties:" -ForegroundColor Yellow
+                $result | Get-Member -MemberType Properties | ForEach-Object { 
+                    Write-Host "  - $($_.Name): $($result.$($_.Name))" -ForegroundColor Yellow 
+                }
+            }
+        }
+    }
+    
     $batchSuccessRate = if (($batchTotalSent + $batchTotalFailed) -gt 0) { 
         [Math]::Round(($batchTotalSent / ($batchTotalSent + $batchTotalFailed)) * 100, 2) 
     } else { 0 }
@@ -698,6 +760,25 @@ if ($healthyConsumers.Count -gt 0) {
     if ($testResults.ContainsKey("Batch")) { $totalMessages += $testResults["Batch"].MessagesSent }
     if ($testResults.ContainsKey("NoBatch")) { $totalMessages += $testResults["NoBatch"].MessagesSent }
     
+    # For verification-only mode, we need to calculate total from existing data
+    if ($TestType -eq "verification" -and $totalMessages -eq 0) {
+        Write-Host "Verification mode: Calculating total from session messages..." -ForegroundColor Yellow
+        # Get total processed + failed messages for this session across all consumer groups
+        $sessionTotal = 0
+        foreach ($group in $consumerGroups) {
+            foreach ($consumer in $healthyConsumers) {
+                $consumerUrl = "http://localhost:$($consumer.Port)"
+                
+                $sessionProcessed = Get-SessionProcessedMessages -ConsumerUrl $consumerUrl -ConsumerGroup $group.ConsumerGroupName -SessionId $SessionId -TestStartTime $TestStartTime
+                $sessionFailed = Get-SessionFailedMessages -ConsumerUrl $consumerUrl -ConsumerGroup $group.ConsumerGroupName -SessionId $SessionId -TestStartTime $TestStartTime
+                
+                $sessionTotal += $sessionProcessed.Count + $sessionFailed.Count
+            }
+        }
+        $totalMessages = $sessionTotal
+        Write-Host "Found $totalMessages total session messages across all consumer groups" -ForegroundColor Yellow
+    }
+    
     # Dynamic timeout based on message volume
     $processingTimeout = [Math]::Max($VerificationTimeoutSeconds, $totalMessages / 1000)  # 1 second per 1000 messages minimum
     
@@ -827,8 +908,15 @@ if ($healthyConsumers.Count -gt 0) {
     Write-Host "  Grand Total: $($totalConsumerProcessed + $totalConsumerFailed)" -ForegroundColor White
     
     # Success evaluation
-    $expectedTotal = $totalMessages * $ConsumerGroups.Count
+    $expectedTotal = $totalMessages * $consumerGroups.Count
     $actualTotal = $totalConsumerProcessed + $totalConsumerFailed
+    
+    # For verification-only mode with no sent messages, use actual total as expected
+    if ($TestType -eq "verification" -and $expectedTotal -eq 0 -and $actualTotal -gt 0) {
+        $expectedTotal = $actualTotal
+        Write-Host "  Verification Mode: Using actual total ($actualTotal) as baseline" -ForegroundColor Yellow
+    }
+    
     $processingRate = if ($expectedTotal -gt 0) { [Math]::Round(($actualTotal / $expectedTotal) * 100, 2) } else { 0 }
     
     Write-Host "  Processing Rate: $processingRate%" -ForegroundColor White
